@@ -45,9 +45,19 @@ final class LiveLayoutContractTests: XCTestCase {
     }
 
     func testDrawToVideoSketchGoesToImageReferences() throws {
-        let b = try body(OperationDraft(operation: .drawToEdit, prompt: "make the jacket red", values: ["resolution": "720p"],
-                                        source: video(5), sketchFile: URL(fileURLWithPath: "/tmp/sketch.png")))
-        XCTAssertEqual(b, json(#"{"params":{"duration":5,"image_references":[{"id":"22222222-2222-4222-8222-222222222222","type":"media_input"}],"prompt":"make the jacket red","resolution":"720p","video":{"id":"11111111-1111-4111-8111-111111111111","type":"video_input"}}}"#))
+        // Live submit validation (2026-10-26): only prompt, video, the sketch in
+        // image_references and the drawn frame's timestamp are accepted; the
+        // schema's duration/resolution/aspect_ratio/... are rejected as extra.
+        let draft = OperationDraft(operation: .drawToEdit, prompt: "make the jacket red", values: ["resolution": "720p"],
+                                   source: video(5), sketchFile: URL(fileURLWithPath: "/tmp/sketch.png"))
+        XCTAssertEqual(try body(draft), json(#"{"params":{"image_references":[{"id":"22222222-2222-4222-8222-222222222222","type":"media_input"}],"prompt":"make the jacket red","timestamp":0,"video":{"id":"11111111-1111-4111-8111-111111111111","type":"video_input"}}}"#))
+        // The estimate still prices by length and resolution (the cost endpoint requires resolution).
+        let req = try RequestBuilder.prepare(draft, catalog: .snapshot)
+        XCTAssertEqual(req.costParams["resolution"], "720p")
+        XCTAssertEqual(req.costParams["duration"], 5)
+        var later = draft
+        later.sketchTime = 2
+        XCTAssertEqual(try RequestBuilder.prepare(later, catalog: .snapshot).params["timestamp"], 2)
     }
 
     func testDrawToEditStillUsesNanoBanana2MaskInpainting() throws {
@@ -92,19 +102,22 @@ final class LiveLayoutContractTests: XCTestCase {
         XCTAssertEqual(JSONValue.object(params), json(#"{"aspect_ratio":"9:16","video_references":[{"id":"11111111-1111-4111-8111-111111111111","type":"video_job"}]}"#))
     }
 
-    func testDrawToVideoReferenceImageGoesToRefImageNotTheSketchSlot() throws {
-        let req = try RequestBuilder.prepare(OperationDraft(operation: .drawToEdit, prompt: "x", source: video(5), referenceImages: [image()],
-                                                            sketchFile: URL(fileURLWithPath: "/tmp/sketch.png")), catalog: .snapshot)
-        XCTAssertEqual(req.media.map(\.role), ["video", "image_references", "ref_image"])
+    func testDrawToVideoRefusesAReferenceImageRatherThanUsingTheSketchSlot() {
+        // ref_image is rejected at submission, so a reference has nowhere to go.
+        XCTAssertThrowsError(try RequestBuilder.prepare(OperationDraft(operation: .drawToEdit, prompt: "x", source: video(5), referenceImages: [image()],
+                                                                       sketchFile: URL(fileURLWithPath: "/tmp/sketch.png")), catalog: .snapshot))
     }
 
     func testLiveDrawToVideoSchemaParsing() throws {
         let schema = try XCTUnwrap(ModelCatalog.snapshot.option("draw_to_video")).schema
         XCTAssertEqual(schema.mediaFields.sorted { $0.name < $1.name },
-                       [MediaField(name: "image_references", isArray: true), MediaField(name: "ref_image", isArray: false), MediaField(name: "video", isArray: false)])
+                       [MediaField(name: "image_references", isArray: true), MediaField(name: "video", isArray: false)])
         XCTAssertTrue(schema.acceptsMedias)
-        XCTAssertNil(schema.parameter(named: "ref_image"))
-        XCTAssertEqual(schema.parameter(named: "resolution")?.defaultValue, "720p")
+        XCTAssertTrue(schema.parameters.isEmpty, "no settings the submit endpoint would reject")
+        // The raw published schema still lists them.
+        let raw = ParameterSchema(jsonSchema: json(#"{"properties":{"prompt":{"type":"string"},"resolution":{"enum":["720p"]},"ref_image":{"anyOf":[{"type":"object","properties":{"id":{"type":"string"}}},{"type":"null"}]}}}"#))
+        XCTAssertEqual(JobTypeQuirks.adjust(raw, jobType: "draw_to_video").mediaRoles, [])
+        XCTAssertEqual(JobTypeQuirks.adjust(raw, jobType: "reframe"), raw)
     }
 
     func testLegacyMediasLayoutStillSupported() throws {
@@ -163,10 +176,41 @@ final class ReviewRegressionTests: XCTestCase {
 
     func testSingleValueMediaPropertyTakesOneInput() {
         let image = SourceClip(name: "r", fileURL: URL(fileURLWithPath: "/tmp/r.png"), kind: .image, origin: .file, info: MediaInfo(kind: .image))
-        let draft = OperationDraft(operation: .drawToEdit, prompt: "x", source: clip(5), referenceImages: [image, image],
-                                   sketchFile: URL(fileURLWithPath: "/tmp/s.png"))
-        XCTAssertThrowsError(try RequestBuilder.prepare(draft, catalog: .snapshot)) { e in
+        var catalog = ModelCatalog.snapshot
+        catalog.merge(live: JobTypeInfo(jobType: "kling3_0", outputType: .video, jsonSchema: json(#"""
+        {"type":"object","properties":{"prompt":{"type":"string"},"ref_image":{"type":"object","properties":{"id":{"type":"string"}}}}}
+        """#)))
+        let draft = OperationDraft(operation: .generateVideo, jobType: "kling3_0", prompt: "x", referenceImages: [image, image])
+        XCTAssertNoThrow(try RequestBuilder.prepare(OperationDraft(operation: .generateVideo, jobType: "kling3_0", prompt: "x", referenceImages: [image]), catalog: catalog))
+        XCTAssertThrowsError(try RequestBuilder.prepare(draft, catalog: catalog)) { e in
             XCTAssertTrue((e as? HiggsfieldError)?.userMessage.contains("only one") == true)
         }
+    }
+}
+
+final class BlockedStatusTests: XCTestCase {
+    func testIPDetectedEndsTheJob() async throws {
+        // Live 2026-10-26: an Edit Video job ended in "ip_detected"; the runner kept polling forever.
+        XCTAssertTrue(RemoteJobStatus(rawValue: "ip_detected").isTerminal)
+        XCTAssertTrue(RemoteJobStatus(rawValue: "rejected").isTerminal)
+        let t = MockTransport()
+        t.on("POST", "/videos/video_background_remover/generations", json: #"{"id":"job-9"}"#)
+        t.on("GET", "/jobs/job-9", json: #"{"id":"job-9","status":"ip_detected"}"#)
+        let dir = try temporaryFile(named: "x").deletingLastPathComponent()
+        let store = JobStore(url: dir.appendingPathComponent("jobs-blocked.json"))
+        let runner = JobRunner(client: makeClient(t), store: store, transport: t, output: OutputLocation(root: dir), sleeper: { _ in })
+        let src = SourceClip(name: "C", fileURL: dir.appendingPathComponent("c.mp4"), kind: .video, origin: .higgsfieldResult,
+                             info: MediaInfo(kind: .video, duration: 4), remoteReference: .jobOutput(id: "j0", kind: .video))
+        let req = try RequestBuilder.prepare(OperationDraft(operation: .removeBackground, source: src), catalog: .snapshot)
+        let started = await runner.start(req, prompt: nil, sourceName: "C", estimatedCredits: nil)
+        let deadline = Date().addingTimeInterval(5)
+        var done: JobRecord?
+        while Date() < deadline {
+            if let r = await store.record(id: started.id), r.phase == JobRecord.Phase.moderated { done = r; break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        let last = await store.record(id: started.id)
+        XCTAssertNotNil(done, "phase: \(String(describing: last?.phase))")
+        XCTAssertTrue(done?.message?.contains("protected content") == true)
     }
 }

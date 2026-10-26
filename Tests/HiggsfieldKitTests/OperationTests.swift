@@ -169,7 +169,8 @@ final class RequestBuilderTests: XCTestCase {
         XCTAssertThrowsError(try RequestBuilder.prepare(OperationDraft(operation: .drawToEdit, prompt: "make the jacket red", source: video(5)), catalog: .snapshot))
         let req = try RequestBuilder.prepare(OperationDraft(operation: .drawToEdit, prompt: "make the jacket red", source: video(5), sketchFile: sketch), catalog: .snapshot)
         XCTAssertEqual(req.jobType, "draw_to_video")
-        XCTAssertEqual(req.params["duration"], 5)
+        XCTAssertNil(req.params["duration"], "rejected at submission (JobTypeQuirks)")
+        XCTAssertEqual(req.params["timestamp"], 0)
         // Live schema (2026-10-26): `image_references` is "the sketch image to
         // animate"; `ref_image` is only an optional style reference.
         XCTAssertEqual(req.media.map(\.role), ["video", "image_references"])

@@ -202,6 +202,10 @@ public enum RemoteJobStatus: Equatable, Sendable {
     case completed
     case failed
     case nsfw
+    /// Stopped by another of Higgsfield's checks, e.g. `ip_detected` (seen live
+    /// 2026-10-26 on an Edit Video job, which was not charged) or `rejected`.
+    /// Both are terminal statuses in the official CLI 1.2.2.
+    case blocked(String)
     case canceled
     case unknown(String)
 
@@ -212,6 +216,7 @@ public enum RemoteJobStatus: Equatable, Sendable {
         case "completed", "succeeded", "success": self = .completed
         case "failed", "error": self = .failed
         case "nsfw": self = .nsfw
+        case "ip_detected", "rejected": self = .blocked(rawValue.lowercased())
         case "canceled", "cancelled": self = .canceled
         default: self = .unknown(rawValue)
         }
@@ -219,7 +224,7 @@ public enum RemoteJobStatus: Equatable, Sendable {
 
     public var isTerminal: Bool {
         switch self {
-        case .completed, .failed, .nsfw, .canceled: return true
+        case .completed, .failed, .nsfw, .blocked, .canceled: return true
         case .queued, .running, .unknown: return false
         }
     }

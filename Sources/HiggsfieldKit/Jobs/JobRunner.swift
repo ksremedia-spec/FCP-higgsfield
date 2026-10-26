@@ -185,6 +185,13 @@ public actor JobRunner {
                     record.message = "Higgsfield’s moderation rejected this result."
                     await save(record)
                     return
+                case .blocked(let reason):
+                    record.phase = .moderated
+                    record.message = reason == "ip_detected"
+                        ? "Higgsfield blocked this result: it flagged protected content (ip_detected)."
+                        : "Higgsfield rejected this generation (\(reason))."
+                    await save(record)
+                    return
                 case .canceled:
                     record.phase = .canceled
                     await save(record)

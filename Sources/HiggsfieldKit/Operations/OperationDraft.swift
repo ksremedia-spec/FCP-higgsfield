@@ -14,9 +14,14 @@ public struct OperationDraft: Codable, Equatable, Sendable {
     public var sketchFile: URL?
     /// Draw to Edit on stills: white strokes on black (PNG), used as an inpainting mask.
     public var maskFile: URL?
+    /// Draw to Edit on video: seconds into the uploaded clip of the frame that
+    /// was drawn on. The panel draws on the first frame of the selection and
+    /// uploads the selection, so this is 0 unless set.
+    public var sketchTime: Double?
 
     public init(operation: OperationKind, jobType: String? = nil, prompt: String = "", values: [String: JSONValue] = [:],
-                source: SourceClip? = nil, referenceImages: [SourceClip] = [], sketchFile: URL? = nil, maskFile: URL? = nil) {
+                source: SourceClip? = nil, referenceImages: [SourceClip] = [], sketchFile: URL? = nil, maskFile: URL? = nil,
+                sketchTime: Double? = nil) {
         self.operation = operation
         self.jobType = jobType ?? operation.candidateJobTypes(sourceKind: source?.kind).first ?? ""
         self.prompt = prompt
@@ -25,6 +30,7 @@ public struct OperationDraft: Codable, Equatable, Sendable {
         self.referenceImages = referenceImages
         self.sketchFile = sketchFile
         self.maskFile = maskFile
+        self.sketchTime = sketchTime
     }
 }
 
@@ -61,6 +67,9 @@ public struct PreparedRequest: Equatable, Sendable {
     public var mediaFields: [MediaField] = []
     /// Length of the selected source video, in seconds.
     public var sourceDuration: Double? = nil
+    /// Params as built before applying JobTypeQuirks' submit allowlist; the
+    /// cost endpoint prices from these.
+    public var costBase: [String: JSONValue]? = nil
 
     /// Params for `POST /jobs/{job_type}/cost`, which doesn't need media ids.
     ///
@@ -69,7 +78,8 @@ public struct PreparedRequest: Equatable, Sendable {
     /// FLUX 3 Video Edit and ByteDance Video Upscale otherwise quote a default
     /// length. Checked live 2026-10-26; extra keys are ignored by the endpoint.
     public var costParams: [String: JSONValue] {
-        var p = params
+        var p = costBase ?? params
+        for (k, v) in JobTypeQuirks.costDefaults(for: jobType) where p[k] == nil { p[k] = v }
         if mediaFields.isEmpty { p["medias"] = .array([]) }
         if p["duration"] == nil, let d = sourceDuration, d > 0 { p["duration"] = .number((d * 10).rounded() / 10) }
         return p
@@ -173,6 +183,17 @@ public enum RequestBuilder {
             params[k] = v
         }
 
+        // Submit-time quirks (JobTypeQuirks): Draw to Video needs the drawn
+        // frame's time and accepts no other settings.
+        if model.jobType == "draw_to_video" {
+            params["timestamp"] = .number(draft.sketchTime ?? 0)
+        }
+        var costBase: [String: JSONValue]? = nil
+        if let allowed = JobTypeQuirks.allowedParameters(for: model.jobType) {
+            costBase = params
+            params = params.filter { allowed.contains($0.key) }
+        }
+
         if op == .reframe && params["aspect_ratio"] == nil {
             throw HiggsfieldError.invalidInput("Choose a target aspect ratio.")
         }
@@ -230,7 +251,8 @@ public enum RequestBuilder {
 
         return PreparedRequest(operation: op, jobType: model.jobType, modelName: model.name, output: output, params: params, media: media,
                                mediaFields: schema.mediaFields,
-                               sourceDuration: draft.source?.kind == .video ? draft.source?.selectedDuration : nil)
+                               sourceDuration: draft.source?.kind == .video ? draft.source?.selectedDuration : nil,
+                               costBase: costBase)
     }
 
     /// Maps a source length to the model's duration parameter.

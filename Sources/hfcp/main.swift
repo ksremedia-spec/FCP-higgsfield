@@ -28,7 +28,7 @@ read-only commands (no credits are spent):
 
 commands that spend credits (require --yes):
   run <operation> --file PATH [--model JOB_TYPE] [--prompt TEXT] [--set key=value]...
-      [--sketch PNG] [--mask PNG] [--out DIR] --yes
+      [--sketch PNG [--sketch-time S]] [--mask PNG] [--out DIR] --yes
 
 utilities:
   fcpxml <media file> --duration S [--fps F] [--width W --height H] [--image]
@@ -136,7 +136,8 @@ func draft(from args: Arguments, operation: OperationKind, sourceFile: URL?) -> 
         operation: operation, jobType: args.value("model") ?? operation.candidateJobTypes(sourceKind: source?.kind).first,
         prompt: args.value("prompt") ?? "", values: values, source: source,
         sketchFile: args.value("sketch").map { URL(fileURLWithPath: $0) },
-        maskFile: args.value("mask").map { URL(fileURLWithPath: $0) }
+        maskFile: args.value("mask").map { URL(fileURLWithPath: $0) },
+        sketchTime: args.double("sketch-time")
     )
 }
 

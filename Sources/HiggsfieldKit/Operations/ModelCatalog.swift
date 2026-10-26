@@ -47,7 +47,7 @@ public struct ModelCatalog: Sendable {
             options[e.job_type] = ModelOption(
                 jobType: e.job_type, name: e.name, provider: e.provider,
                 output: MediaKind(rawValue: e.type) ?? .video,
-                schema: ParameterSchema(jsonSchema: e.json_schema), isLive: false
+                schema: JobTypeQuirks.adjust(ParameterSchema(jsonSchema: e.json_schema), jobType: e.job_type), isLive: false
             )
         }
         return ModelCatalog(options: options)
@@ -60,7 +60,7 @@ public struct ModelCatalog: Sendable {
     /// Replaces the snapshot entry with live catalog data.
     public mutating func merge(live info: JobTypeInfo) {
         let existing = options[info.jobType]
-        let schema = info.jsonSchema.map(ParameterSchema.init(jsonSchema:)) ?? existing?.schema
+        let schema = info.jsonSchema.map { JobTypeQuirks.adjust(ParameterSchema(jsonSchema: $0), jobType: info.jobType) } ?? existing?.schema
         guard let schema else { return }
         options[info.jobType] = ModelOption(
             jobType: info.jobType,

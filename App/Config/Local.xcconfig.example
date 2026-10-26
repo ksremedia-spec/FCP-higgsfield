@@ -1,0 +1,21 @@
+// Paid developer team setup. Copy this file to Local.xcconfig (same folder)
+// and set your Team ID (developer.apple.com/account ▸ Membership details).
+// Then build as usual; there is no need to re-run xcodegen, and doing so
+// keeps these settings.
+HIGGSFIELD_TEAM_ID = ABCDE12345
+
+DEVELOPMENT_TEAM = $(HIGGSFIELD_TEAM_ID)
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+
+// App Group container shared by the app and the extension, and a Keychain
+// group for the sign-in token. Xcode registers both when it signs. A free
+// Personal Team can't use these: delete this block and keep only the lines
+// above, which still save you re-picking the team after `xcodegen generate`.
+HIGGSFIELD_ENTITLEMENTS_VARIANT = Shared
+HIGGSFIELD_APP_GROUP = $(HIGGSFIELD_TEAM_ID).com.ksremedia.HiggsfieldFCP
+HIGGSFIELD_KEYCHAIN_GROUP = $(HIGGSFIELD_TEAM_ID).com.ksremedia.HiggsfieldFCP.shared
+
+// Only if Xcode says the bundle identifier is not available to your team
+// (for example, it was registered by your free Personal Team earlier):
+// HIGGSFIELD_BUNDLE_ID_PREFIX = com.yourname

@@ -67,6 +67,35 @@ jobs:
           test -d "$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex"
           /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex/Contents/Info.plist"
           /usr/libexec/PlistBuddy -c "Print :NSExtension:ProExtensionPrincipalViewControllerClass" "$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex/Contents/Info.plist"
+          # Default personal build: no App Group or Keychain group.
+          test -z "$(/usr/libexec/PlistBuddy -c 'Print :HiggsfieldAppGroup' "$APP/Contents/Info.plist")"
+          test -z "$(/usr/libexec/PlistBuddy -c 'Print :HiggsfieldKeychainGroup' "$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex/Contents/Info.plist")"
+      - name: Build with the paid-team config (Local.xcconfig.example, ad-hoc signed)
+        run: |
+          set -o pipefail
+          cp App/Config/Local.xcconfig.example App/Config/Local.xcconfig
+          # Ad-hoc signing stands in for a real team so the entitlements are
+          # processed and embedded; the groups use the example Team ID.
+          xcodebuild -project App/HiggsfieldFCP.xcodeproj \
+            -scheme HiggsfieldFCP -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/SharedDerivedData \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            build | tee build/xcodebuild-shared.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          rm App/Config/Local.xcconfig
+          grep -q "BUILD SUCCEEDED" build/xcodebuild-shared.log
+          APP=$(find build/SharedDerivedData/Build/Products/Debug -maxdepth 1 -name "*.app" | head -1)
+          EXT="$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex"
+          GROUP=ABCDE12345.com.ksremedia.HiggsfieldFCP
+          for bundle in "$APP" "$EXT"; do
+            test "$(/usr/libexec/PlistBuddy -c 'Print :HiggsfieldAppGroup' "$bundle/Contents/Info.plist")" = "$GROUP"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :HiggsfieldKeychainGroup' "$bundle/Contents/Info.plist")" = "$GROUP.shared"
+            codesign -d --entitlements - --xml "$bundle" > build/entitlements.plist
+            plutil -p build/entitlements.plist
+            grep -q "<string>$GROUP</string>" build/entitlements.plist
+            grep -q "<string>$GROUP.shared</string>" build/entitlements.plist
+          done
+          grep -q "com.apple.security.app-sandbox" build/entitlements.plist
       - name: Upload generated FCPXML samples
         if: always()
         uses: actions/upload-artifact@v4

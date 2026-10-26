@@ -7,9 +7,10 @@ This page lists what has been verified and how, what has not been verified yet, 
 | Check | Where | What it proves |
 |---|---|---|
 | **HiggsfieldKit tests on Linux** (Swift 5.10) and **macOS** (Xcode 16) | `swift test` | 73 tests (see below) |
-| **Panel tests on macOS** | `Tests/HiggsfieldPanelTests` | Draw-to-Edit sketch and mask pixels, FCPXML drag pasteboard types and data, FCP browser/project drops → sources, timeline playhead resolution, validation messages, tool defaults, graceful behaviour with no FCP host |
+| **Panel tests on macOS** | `Tests/HiggsfieldPanelTests` | Draw-to-Edit sketch and mask pixels, FCPXML drag pasteboard types and data, FCP browser/project drops → sources, timeline playhead resolution, validation messages, tool defaults, graceful behaviour with no FCP host, personal storage, and the one-time move into an App Group |
 | **FCPXML ⟷ Apple DTD 1.10** | `FCPXMLBuilderTests` with `FCPXML_DTD` (fetched from developer.apple.com by `tools/fetch_fcpxml_dtd.py`) | Every generated import/drag document validates with `xmllint --dtdvalid`. A deliberately broken document is rejected, so the check is real. |
 | **Container app + workflow extension build** | `xcodegen` + `xcodebuild` | Both targets compile and link against the package. The `.appex` is embedded under `PlugIns/` with `NSExtensionPointIdentifier = com.apple.FinalCut.WorkflowExtension` and the principal view controller key. |
+| **Paid-team signing config** | second `xcodebuild` with `App/Config/Local.xcconfig.example`, ad-hoc signed | Both targets embed the App Group and Keychain group entitlements and Info.plist keys from the Team ID, and the extension stays sandboxed. The default build carries neither. |
 | **UI snapshots** | `PanelTests.testRenderPanelSnapshots` → branch `ci/panel-snapshots` (latest copy in [docs/screenshots](screenshots)) | Every tool screen renders. Reviewed visually; issues found and fixed: aspect-ratio default, frame-rate label, free-text parameters moved under *Advanced*. |
 
 ### What the HiggsfieldKit tests cover
@@ -74,6 +75,7 @@ The official CLI's behaviour was also verified through a capture proxy, with no 
 | **Anything inside Final Cut Pro** (L5) | No Mac/FCP in the build environment | The acceptance checklist below |
 | **The extension running the CLI inside its sandbox** | Needs a Mac | Sign in from the extension. If the sandbox blocks the CLI, the panel falls back to the container app automatically; either way it should connect. |
 | **Built-in "Sign in with Higgsfield"** (optional) | Needs an OAuth client ID issued by Higgsfield | Set `HIGGSFIELD_OAUTH_CLIENT_ID` in `App/project.yml` |
+| **App Group and Keychain with a real team** (optional) | Needs your Team ID and a Mac; CI can only ad-hoc sign | Follow README, *Paid developer team*, then the checklist |
 | **Timeline API binding** (`ProExtensionHost`) | Needs Apple's Workflow Extension SDK and FCP | `scripts/configure-workflow-sdk.sh`, then the checklist |
 
 ## Live API check in CI (no credits spent)
@@ -108,6 +110,7 @@ Setup:
 
 - [ ] Optional SDK step: `scripts/configure-workflow-sdk.sh`.
 - [ ] `xcodegen generate --spec App/project.yml`, open the project, sign both targets with your Apple ID (Personal Team), build **HiggsfieldFCP**.
+- [ ] Optional, paid team: copy `App/Config/Local.xcconfig.example` to `Local.xcconfig`, set your Team ID, build. Xcode signs both targets with your team without errors.
 - [ ] Copy the app to `/Applications` and launch it once.
 - [ ] FCP shows **Higgsfield** in the toolbar Extensions menu and under **Window ▸ Extensions**.
 
@@ -115,6 +118,7 @@ Account:
 
 - [ ] The panel opens in a floating window.
 - [ ] With the official CLI signed in, **Use Higgsfield CLI Session** connects. Credits and plan appear in the header.
+- [ ] Paid team only: after switching from the personal build, the panel opens still signed in, Activity shows the earlier jobs, and `~/Library/Application Support/HiggsfieldFCP/credentials.json` is gone (the token is in the Keychain).
 
 Sources:
 

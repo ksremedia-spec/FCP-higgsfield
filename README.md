@@ -26,7 +26,7 @@ It has **not yet been run against the live Higgsfield API through this app, or i
 
 ## Build and install (personal setup)
 
-Requirements: macOS 13+, Xcode 15+, [XcodeGen](https://github.com/yonaskolb/XcodeGen), Final Cut Pro 10.6+, and a free Apple ID in Xcode. No paid developer account is needed.
+Requirements: macOS 13+, Xcode 15+, [XcodeGen](https://github.com/yonaskolb/XcodeGen), Final Cut Pro 10.6+, and a free Apple ID in Xcode. No paid developer account is needed; if you have one, see [Paid developer team](#paid-developer-team-optional) for a few extras.
 
 ```sh
 brew install xcodegen
@@ -35,9 +35,29 @@ xcodegen generate --spec App/project.yml
 open App/HiggsfieldFCP.xcodeproj
 ```
 
-1. In Xcode, select each of the two targets (**HiggsfieldFCP** and **HiggsfieldWorkflowExtension**). Under **Signing & Capabilities**, pick your Apple ID; *Personal Team* is fine. No extra capabilities are needed.
+1. In Xcode, select each of the two targets (**HiggsfieldFCP** and **HiggsfieldWorkflowExtension**). Under **Signing & Capabilities**, pick your Apple ID; *Personal Team* is fine. No extra capabilities are needed. (`xcodegen generate` resets this choice; `Local.xcconfig`, below, keeps it.)
 2. Build the **HiggsfieldFCP** scheme (⌘B), choose **Product ▸ Show Build Folder in Finder**, and copy *Higgsfield for Final Cut Pro.app* to `/Applications`.
 3. Launch it once. That registers the extension with Final Cut Pro.
+
+### Paid developer team (optional)
+
+The setup above is complete on its own. A paid team adds:
+
+- **Signing that survives `xcodegen generate`.** Your Team ID lives in a git-ignored config file rather than the generated project.
+- **The sign-in token in the Keychain**, instead of a private file, and an **App Group** container shared by the app and the extension, instead of a folder in Application Support.
+
+```sh
+cp App/Config/Local.xcconfig.example App/Config/Local.xcconfig
+open -e App/Config/Local.xcconfig     # set HIGGSFIELD_TEAM_ID
+```
+
+Your Team ID is under **Membership details** at [developer.apple.com/account](https://developer.apple.com/account). Build as usual; skip step 1 above. Xcode registers the App Group and the Keychain group when it signs.
+
+On first launch the panel moves your job history, settings and sign-in from the personal folder into the App Group, so you don't sign in again. To go back, delete `Local.xcconfig` and sign in again.
+
+If Xcode says the bundle identifier isn't available to your team, for example because your free Personal Team registered it earlier, set `HIGGSFIELD_BUNDLE_ID_PREFIX` in the same file (e.g. `com.yourname`).
+
+Developer ID signing and notarisation aren't needed. They only matter for running the app on other people's Macs.
 
 ### Signing in
 
@@ -56,7 +76,7 @@ You can also paste an access token from `hf auth token`. A built-in "Sign in wit
 | What | Where |
 |---|---|
 | Generated and processed media | `~/Movies/Higgsfield/<date>/` (Final Cut Pro imports from here) |
-| Job history, settings, the sign-in token | `~/Library/Application Support/HiggsfieldFCP/` (the token is a private file, readable only by you, the same way the CLI keeps its own login) |
+| Job history, settings, the sign-in token | `~/Library/Application Support/HiggsfieldFCP/` (the token is a private file, readable only by you, the same way the CLI keeps its own login). With a paid team: the App Group container `~/Library/Group Containers/<Team ID>.com.ksremedia.HiggsfieldFCP/`, and the token in the Keychain. |
 | Renders from **File ▸ Share ▸ Higgsfield** | the `Inbox` folder inside the above |
 
 ### Share destination (rendered timelines)
@@ -79,4 +99,3 @@ In Final Cut Pro, go to **File ▸ Share ▸ Add Destination**, add **Export Fil
 
 - Results are saved to `~/Movies/Higgsfield/<date>/`, where Final Cut Pro can import them.
 - Higgsfield's account API has no cancel endpoint. *Stop Tracking* stops waiting locally; the job still completes and is billed.
-- Optional, if you ever sign with a paid developer team: set `HIGGSFIELD_APP_GROUP` and `HIGGSFIELD_KEYCHAIN_GROUP` in `App/project.yml` and add the matching App Group and Keychain Sharing entitlements to both targets. The panel then uses them instead of the shared folder. This isn't needed for personal use.

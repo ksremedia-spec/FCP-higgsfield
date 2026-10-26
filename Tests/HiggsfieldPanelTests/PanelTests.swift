@@ -173,6 +173,28 @@ final class PanelTests: XCTestCase {
         XCTAssertFalse(SharedStorage.realHomeDirectory.path.contains("/Library/Containers/"))
     }
 
+    func testPaidTeamSetupAdoptsPersonalFilesOnce() throws {
+        let fm = FileManager.default
+        let personal = tempRoot.appendingPathComponent("personal", isDirectory: true)
+        let group = tempRoot.appendingPathComponent("group", isDirectory: true)
+        try fm.createDirectory(at: personal, withIntermediateDirectories: true)
+        try Data("[]".utf8).write(to: personal.appendingPathComponent("jobs-extension.json"))
+        let personalToken = FileTokenStore(url: personal.appendingPathComponent("credentials.json"))
+        try personalToken.save(TokenSet(accessToken: "T", source: .higgsfieldCLI))
+
+        SharedStorage.adoptPersonalFiles(from: personal, to: group)
+        XCTAssertTrue(fm.fileExists(atPath: group.appendingPathComponent("jobs-extension.json").path))
+        XCTAssertTrue(fm.fileExists(atPath: personal.appendingPathComponent("jobs-extension.json").path), "history is copied")
+        XCTAssertEqual(try SharedStorage(root: group).tokenStore().load()?.accessToken, "T")
+        XCTAssertNil(try personalToken.load(), "the sign-in is moved, not duplicated")
+
+        // Runs once: after signing out, an old personal sign-in is not brought back.
+        try SharedStorage(root: group).tokenStore().clear()
+        try personalToken.save(TokenSet(accessToken: "OLD", source: .higgsfieldCLI))
+        SharedStorage.adoptPersonalFiles(from: personal, to: group)
+        XCTAssertNil(try SharedStorage(root: group).tokenStore().load())
+    }
+
     func testTimecodeFormatting() {
         let state = TimelineState(frameDuration: 0.04, playhead: 3605.5)
         XCTAssertEqual(state.timecode(state.playhead), "01:00:05:12")

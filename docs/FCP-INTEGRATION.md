@@ -54,7 +54,14 @@ If a file still can't be read, the panel shows **Allow…**, which opens a folde
 
 ### Sharing between the app and the extension
 
-Both processes use `~/Library/Application Support/HiggsfieldFCP/` for job history, settings, the Share inbox, and the sign-in token (a private 0600 file). That works with free personal signing. If an App Group and Keychain access group are configured (optional, paid team), the panel uses those instead.
+Both processes use `~/Library/Application Support/HiggsfieldFCP/` for job history, settings, the Share inbox, and the sign-in token (a private 0600 file). That works with free personal signing.
+
+With a paid developer team, `App/Config/Local.xcconfig` (copied from `Local.xcconfig.example`) switches both targets to the *Shared* entitlements:
+
+- an App Group container, `<Team ID>.com.ksremedia.HiggsfieldFCP`, replaces the folder
+- a Keychain access group, `<Team ID>.com.ksremedia.HiggsfieldFCP.shared`, holds the sign-in token
+
+On first launch the panel copies job history, settings and drafts into the group container and moves the sign-in there, then into the Keychain. If the Keychain entitlement is missing at run time, it falls back to the private file. The entitlements are committed per variant (`*-Personal.entitlements`, `*-Shared.entitlements`), and `CODE_SIGN_ENTITLEMENTS` picks one through `HIGGSFIELD_ENTITLEMENTS_VARIANT` (`App/Config/Signing.xcconfig`).
 
 ## Returning results to Final Cut Pro
 
@@ -85,6 +92,6 @@ Apple distributes `ProExtensionHost.framework` with the Workflow Extension SDK, 
 
 ## Install and enable (per Apple)
 
-1. Build the scheme `HiggsfieldFCP`: run `xcodegen generate --spec App/project.yml`, then open `App/HiggsfieldFCP.xcodeproj`. Sign both targets with your Apple ID (Personal Team is fine).
+1. Build the scheme `HiggsfieldFCP`: run `xcodegen generate --spec App/project.yml`, then open `App/HiggsfieldFCP.xcodeproj`. Sign both targets with your Apple ID (Personal Team is fine), or put a paid Team ID in `App/Config/Local.xcconfig`.
 2. Copy *Higgsfield for Final Cut Pro.app* to `/Applications` and launch it once. This registers the extension.
 3. In Final Cut Pro: Extensions button in the toolbar, or **Window ▸ Extensions ▸ Higgsfield**.

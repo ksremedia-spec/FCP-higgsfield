@@ -8,8 +8,8 @@ import Security
 /// By default (personal build, no App Group) both processes use
 /// `~/Library/Application Support/HiggsfieldFCP`; the sandboxed extension has
 /// a read-write exception for exactly that folder. Optional Info.plist keys
-/// (set via App/project.yml) switch to stronger sharing when your signing
-/// team provisions them:
+/// (set by App/Config/Local.xcconfig for a paid developer team) switch to
+/// stronger sharing:
 /// - `HiggsfieldAppGroup`: App Group identifier for the shared container.
 /// - `HiggsfieldKeychainGroup`: Keychain access group for credentials.
 public struct SharedStorage: Sendable {
@@ -27,10 +27,15 @@ public struct SharedStorage: Sendable {
         keychainGroup = setting("HiggsfieldKeychainGroup")
         if let appGroup, let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) {
             root = url
+            Self.adoptPersonalFiles(from: Self.personalRoot, to: url)
         } else {
-            root = Self.realHomeDirectory
-                .appendingPathComponent("Library/Application Support/HiggsfieldFCP", isDirectory: true)
+            root = Self.personalRoot
         }
+    }
+
+    /// The folder used without an App Group.
+    public static var personalRoot: URL {
+        realHomeDirectory.appendingPathComponent("Library/Application Support/HiggsfieldFCP", isDirectory: true)
     }
 
     /// The user's real home folder. Inside the sandbox `NSHomeDirectory()` and
@@ -40,6 +45,29 @@ public struct SharedStorage: Sendable {
             return URL(fileURLWithPath: String(cString: dir), isDirectory: true)
         }
         return FileManager.default.homeDirectoryForCurrentUser
+    }
+
+    /// Brings job history, settings, drafts and the sign-in over the first time
+    /// an App Group container is used, so switching from the personal setup
+    /// to a paid team loses nothing. Runs once (a marker file records it). The
+    /// sign-in file is moved rather than copied; with a Keychain group it is
+    /// then taken into the Keychain on first read.
+    static func adoptPersonalFiles(from old: URL, to new: URL) {
+        let fm = FileManager.default
+        let marker = new.appendingPathComponent(".adopted-personal-files")
+        guard old.standardizedFileURL != new.standardizedFileURL, !fm.fileExists(atPath: marker.path) else { return }
+        try? fm.createDirectory(at: new, withIntermediateDirectories: true)
+        let copied = ["app", "extension"].flatMap { ["jobs-\($0).json", "settings-\($0).json", "drafts-\($0).json"] }
+        for name in copied + ["credentials.json"] {
+            let source = old.appendingPathComponent(name), destination = new.appendingPathComponent(name)
+            guard fm.fileExists(atPath: source.path), !fm.fileExists(atPath: destination.path) else { continue }
+            if name == "credentials.json" {
+                try? fm.moveItem(at: source, to: destination)
+            } else {
+                try? fm.copyItem(at: source, to: destination)
+            }
+        }
+        fm.createFile(atPath: marker.path, contents: Data())
     }
 
     /// Explicit locations (tests, previews).
@@ -92,7 +120,8 @@ public struct SharedStorage: Sendable {
 
 /// Stores credentials as a generic password in a shared Keychain group. If
 /// the build lacks that entitlement, `fallback` is used so both processes
-/// still see the same credentials.
+/// still see the same credentials. A sign-in found only in `fallback` (from
+/// the personal setup) is moved into the Keychain on first read.
 public struct KeychainTokenStore: TokenStore {
     public let service: String
     public let accessGroup: String
@@ -122,7 +151,11 @@ public struct KeychainTokenStore: TokenStore {
         var result: CFTypeRef?
         let status = SecItemCopyMatching(q as CFDictionary, &result)
         if status == errSecMissingEntitlement { return try fallback.load() }
-        if status == errSecItemNotFound { return nil }
+        if status == errSecItemNotFound {
+            guard let tokens = try fallback.load() else { return nil }
+            if (try? writeToKeychain(tokens)) == errSecSuccess { try? fallback.clear() }
+            return tokens
+        }
         guard status == errSecSuccess, let data = result as? Data else {
             throw HiggsfieldError.invalidInput("Keychain read failed (\(status)).")
         }
@@ -132,6 +165,12 @@ public struct KeychainTokenStore: TokenStore {
     }
 
     public func save(_ tokens: TokenSet) throws {
+        let status = try writeToKeychain(tokens)
+        if status == errSecMissingEntitlement { return try fallback.save(tokens) }
+        guard status == errSecSuccess else { throw HiggsfieldError.invalidInput("Keychain write failed (\(status)).") }
+    }
+
+    private func writeToKeychain(_ tokens: TokenSet) throws -> OSStatus {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(tokens)
@@ -142,8 +181,7 @@ public struct KeychainTokenStore: TokenStore {
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
             status = SecItemAdd(add as CFDictionary, nil)
         }
-        if status == errSecMissingEntitlement { return try fallback.save(tokens) }
-        guard status == errSecSuccess else { throw HiggsfieldError.invalidInput("Keychain write failed (\(status)).") }
+        return status
     }
 
     public func clear() throws {
@@ -152,6 +190,8 @@ public struct KeychainTokenStore: TokenStore {
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw HiggsfieldError.invalidInput("Keychain delete failed (\(status)).")
         }
+        // Signing out must not leave a file sign-in to be adopted back.
+        try? fallback.clear()
     }
 }
 

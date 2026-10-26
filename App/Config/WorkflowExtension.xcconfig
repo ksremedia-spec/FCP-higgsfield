@@ -1,5 +1,6 @@
 // Build settings for the Final Cut Pro workflow extension.
-//
+#include "Signing.xcconfig"
+
 // The Workflow Extension SDK (ProExtensionHost.framework) is downloaded from
 // developer.apple.com and is not redistributable here. When it is installed,
 // run scripts/configure-workflow-sdk.sh: it writes ProExtensionHost.local.xcconfig,

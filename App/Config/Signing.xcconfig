@@ -1,0 +1,17 @@
+// Signing and app/extension sharing, used by both targets.
+//
+// Personal (default): sign with any Apple ID in Xcode, Personal Team is fine.
+// No extra capabilities; the app and the extension share
+// ~/Library/Application Support/HiggsfieldFCP and keep the sign-in token in a
+// private file there.
+//
+// Paid developer team (optional): copy Local.xcconfig.example to
+// Local.xcconfig and enter your Team ID. Both targets are then signed with
+// your team, share an App Group container, and keep the sign-in token in the
+// Keychain. Local.xcconfig is git-ignored and survives `xcodegen generate`.
+HIGGSFIELD_ENTITLEMENTS_VARIANT = Personal
+HIGGSFIELD_APP_GROUP =
+HIGGSFIELD_KEYCHAIN_GROUP =
+HIGGSFIELD_BUNDLE_ID_PREFIX = com.ksremedia
+
+#include? "Local.xcconfig"

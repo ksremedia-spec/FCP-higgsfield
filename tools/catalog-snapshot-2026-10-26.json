@@ -1,0 +1,1226 @@
+{
+ "captured": "2026-10-26",
+ "source": "Higgsfield job catalog as returned by the official Higgsfield MCP server (models_explore list/get), account plan 'plus'. Roles for 'reframe' follow the dedicated MCP reframe tool schema (role 'video', 'start_image', 'image') because the catalog listing and the tool disagree; the live json_schema from GET /job_types/{id} always takes precedence at runtime.",
+ "overrides": {
+  "reframe": {
+   "roles": [
+    "video",
+    "start_image",
+    "image"
+   ]
+  }
+ },
+ "models": [
+  {
+   "id": "cinematic_studio_3_0",
+   "name": "Cinema Studio Video 3.0",
+   "provider_name": "Higgsfield",
+   "parameters": [
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution (higher = more credits)",
+     "default": "720p",
+     "options": [
+      "480p",
+      "720p",
+      "1080p",
+      "4k"
+     ]
+    },
+    {
+     "name": "genre",
+     "required": "optional",
+     "type": "string",
+     "description": "Cinematic genre hint",
+     "default": "auto",
+     "options": [
+      "auto",
+      "action",
+      "horror",
+      "comedy",
+      "noir",
+      "drama",
+      "epic"
+     ]
+    },
+    {
+     "name": "generate_audio",
+     "required": "optional",
+     "type": "bool",
+     "description": "Generate audio for the video.",
+     "default": false
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "image",
+      "start_image",
+      "end_image"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "auto",
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "duration_range": {
+    "min": 4,
+    "max": 15
+   },
+   "output_type": "video"
+  },
+  {
+   "id": "flux_3_video_edit",
+   "name": "FLUX 3 Video Edit",
+   "provider_name": "Black Forest Labs",
+   "parameters": [
+    {
+     "name": "folder_id",
+     "required": "optional",
+     "type": "string",
+     "description": "Optional folder to place the generated output in.",
+     "nullable": true
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "video_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "video_background_remover",
+   "name": "Video Background Remover",
+   "provider_name": "",
+   "parameters": [],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "video_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "minimax_hailuo",
+   "name": "Minimax Hailuo",
+   "provider_name": "Hailuo",
+   "parameters": [
+    {
+     "name": "variant",
+     "required": "optional",
+     "type": "string",
+     "description": "Minimax Hailuo model variant.",
+     "options": [
+      "minimax",
+      "minimax-fast",
+      "minimax-2.3",
+      "minimax-2.3-fast"
+     ],
+     "default": "minimax-2.3"
+    },
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration in seconds.",
+     "options": [
+      6,
+      10
+     ],
+     "default": 6
+    },
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution. '512' is incompatible with end_image, and is not supported by the 'minimax-2.3' / 'minimax-2.3-fast' variants.",
+     "options": [
+      "512",
+      "768",
+      "1080"
+     ],
+     "default": "768"
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "start_image",
+      "end_image"
+     ]
+    }
+   ],
+   "aspect_ratios": [],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "seedance1_5",
+   "name": "Seedance 1.5 Pro",
+   "provider_name": "Bytedance",
+   "parameters": [
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration of the output video in seconds.",
+     "options": [
+      4,
+      8,
+      12
+     ],
+     "default": 4
+    },
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution of the video.",
+     "options": [
+      "480p",
+      "720p",
+      "1080p"
+     ],
+     "default": "720p"
+    },
+    {
+     "name": "generate_audio",
+     "required": "optional",
+     "type": "bool",
+     "description": "Generate native audio for the video. Set false for a silent video.",
+     "default": true
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "start_image",
+      "end_image"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "auto",
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "seedance_2_0",
+   "name": "Seedance 2.0",
+   "provider_name": "Bytedance",
+   "parameters": [
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration in seconds (4-15). Whole number.",
+     "min": 4,
+     "max": 15,
+     "default": 5
+    },
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution supported by standard mode.",
+     "options": [
+      "480p",
+      "720p",
+      "1080p",
+      "4k"
+     ],
+     "default": "720p"
+    },
+    {
+     "name": "mode",
+     "required": "optional",
+     "type": "string",
+     "description": "Generation mode. Only 'std' is offered for this account; 'std' requires a Plus plan or higher (Pro on legacy plans) \u2014 submitting on a lower plan is refused with job_minimum_pro_plan_required.",
+     "options": [
+      "std"
+     ],
+     "default": "std"
+    },
+    {
+     "name": "bitrate_mode",
+     "required": "optional",
+     "type": "string",
+     "description": "'standard' = normal output bitrate; 'high' = higher bitrate output.",
+     "options": [
+      "standard",
+      "high"
+     ],
+     "default": "standard"
+    },
+    {
+     "name": "genre",
+     "required": "optional",
+     "type": "string",
+     "description": "Cinematic genre hint.",
+     "options": [
+      "auto",
+      "action",
+      "horror",
+      "comedy",
+      "noir",
+      "drama",
+      "epic"
+     ],
+     "default": "auto"
+    },
+    {
+     "name": "generate_audio",
+     "required": "optional",
+     "type": "bool",
+     "description": "Generate native audio for the video. Set false for a silent video. Independent of audio_references.",
+     "default": true
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "start_image",
+      "end_image",
+      "image_references",
+      "video_references",
+      "audio_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "auto",
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "1:1",
+    "21:9"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "seedance_2_5",
+   "name": "Seedance 2.5",
+   "provider_name": "Bytedance",
+   "parameters": [
+    {
+     "name": "mode",
+     "required": "optional",
+     "type": "string",
+     "description": "Generation mode: 't2v' for prompt-only generation, 'omni_reference' for image, video, or audio references, 'video_edit' to edit one reference video (billed by that video's duration; 'duration' and 'aspect_ratio' are ignored), or 'video_extension' to extend a reference video ('aspect_ratio' is ignored \u2014 the output follows the extended video).",
+     "options": [
+      "t2v",
+      "omni_reference",
+      "video_edit",
+      "video_extension"
+     ],
+     "default": "t2v"
+    },
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration in seconds (4-30). Whole number.",
+     "min": 4,
+     "max": 30,
+     "default": 5
+    },
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution: 480p, 720p, or 1080p.",
+     "options": [
+      "480p",
+      "720p",
+      "1080p"
+     ],
+     "default": "720p"
+    },
+    {
+     "name": "generate_audio",
+     "required": "optional",
+     "type": "bool",
+     "description": "Generate audio for the output video.",
+     "default": true
+    },
+    {
+     "name": "bitrate_mode",
+     "required": "optional",
+     "type": "string",
+     "description": "'standard' = normal output bitrate; 'high' = higher bitrate output.",
+     "options": [
+      "standard",
+      "high"
+     ],
+     "default": "standard"
+    },
+    {
+     "name": "extension_mode",
+     "required": "optional",
+     "type": "string",
+     "description": "Extension direction; required for mode 'video_extension' and not allowed otherwise.",
+     "options": [
+      "backward",
+      "forward"
+     ],
+     "nullable": true
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "start_image",
+      "end_image",
+      "image_references",
+      "video_references",
+      "audio_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "auto",
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "draw_to_video",
+   "name": "Draw To Video",
+   "provider_name": "",
+   "parameters": [
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration of the output video in seconds.",
+     "nullable": true
+    },
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution.",
+     "options": [
+      "480p",
+      "720p",
+      "1080p"
+     ],
+     "default": "720p"
+    },
+    {
+     "name": "generate_audio",
+     "required": "optional",
+     "type": "bool",
+     "description": "Generate native audio for the video.",
+     "default": false
+    },
+    {
+     "name": "enhancer",
+     "required": "optional",
+     "type": "bool",
+     "description": "Enhance the prompt before generation.",
+     "default": true
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "video",
+      "image_references",
+      "ref_image"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "auto",
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "reframe",
+   "name": "Reframe",
+   "provider_name": "",
+   "parameters": [
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution.",
+     "options": [
+      "480p",
+      "720p",
+      "1080p"
+     ],
+     "default": "720p"
+    },
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration of the source video in seconds (used for pricing).",
+     "nullable": true
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "video_references",
+      "start_image",
+      "image_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "topaz_video",
+   "name": "Topaz",
+   "provider_name": "",
+   "parameters": [
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Target output resolution.",
+     "options": [
+      "1080p",
+      "2160p"
+     ],
+     "default": "1080p"
+    },
+    {
+     "name": "enhancement",
+     "required": "optional",
+     "type": "string",
+     "description": "Enhancement settings (omit to use Topaz defaults).",
+     "nullable": true
+    },
+    {
+     "name": "frame_interpolation",
+     "required": "optional",
+     "type": "string",
+     "description": "Frame interpolation (omit to disable).",
+     "nullable": true
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "video_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "auto",
+    "21:9",
+    "16:9",
+    "4:3",
+    "1:1",
+    "3:4",
+    "9:16"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "bytedance_video_upscale",
+   "name": "Bytedance Video Upscale",
+   "provider_name": "",
+   "parameters": [
+    {
+     "name": "fps",
+     "required": "optional",
+     "type": "number",
+     "description": "Output frame rate in frames per second (24-60). Whole number.",
+     "min": 24,
+     "max": 60,
+     "default": 24
+    },
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Target output resolution.",
+     "options": [
+      "1080p",
+      "2k",
+      "4k"
+     ],
+     "default": "2k"
+    },
+    {
+     "name": "preset",
+     "required": "optional",
+     "type": "string",
+     "description": "Content-type preset that tunes the upscaler for the source material.",
+     "options": [
+      "common",
+      "aigc",
+      "short_series",
+      "ugc",
+      "old_film"
+     ],
+     "default": "common"
+    },
+    {
+     "name": "model_version",
+     "required": "optional",
+     "type": "string",
+     "description": "Upscaler model tier: 'standard' or higher-quality 'pro'.",
+     "options": [
+      "standard",
+      "pro"
+     ],
+     "default": "standard"
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "video_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "kling3_0",
+   "name": "Kling v3.0",
+   "provider_name": "Kling",
+   "parameters": [
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration in seconds (3-15). Whole number.",
+     "min": 3,
+     "max": 15,
+     "default": 5
+    },
+    {
+     "name": "mode",
+     "required": "optional",
+     "type": "string",
+     "description": "Generation mode: 'std' (standard), 'pro' (higher quality), or '4k' (4K resolution).",
+     "options": [
+      "std",
+      "pro",
+      "4k"
+     ],
+     "default": "std"
+    },
+    {
+     "name": "sound",
+     "required": "optional",
+     "type": "string",
+     "description": "Generate audio. Use 'off' for silent video and lower credits.",
+     "options": [
+      "on",
+      "off"
+     ],
+     "default": "on"
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "start_image",
+      "end_image"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "16:9",
+    "9:16",
+    "1:1"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "kling4_0",
+   "name": "Kling 4.0",
+   "provider_name": "Kling",
+   "parameters": [
+    {
+     "name": "mode",
+     "required": "optional",
+     "type": "string",
+     "description": "Generation mode.",
+     "options": [
+      "text-to-video",
+      "image-to-video",
+      "reference-to-video",
+      "video-edit"
+     ],
+     "default": "text-to-video"
+    },
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution.",
+     "options": [
+      "720p",
+      "1080p"
+     ],
+     "default": "1080p"
+    },
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration in whole seconds (3-30). Whole number.",
+     "min": 3,
+     "max": 30,
+     "default": 10
+    },
+    {
+     "name": "kling_element_ids",
+     "required": "optional",
+     "type": "string_array",
+     "description": "Accessible, ready Kling element IDs or reference UUIDs (up to seven)."
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "start_image",
+      "end_image",
+      "image_references",
+      "video_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "21:9",
+    "16:9",
+    "9:16",
+    "1:1",
+    "auto"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "kling_video_edit",
+   "name": "Kling 3.0 Omni Edit",
+   "provider_name": "Kling",
+   "parameters": [
+    {
+     "name": "mode",
+     "required": "optional",
+     "type": "string",
+     "description": "Output quality: Standard, Pro, or 4K.",
+     "options": [
+      "std",
+      "pro",
+      "4k"
+     ],
+     "default": "pro"
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "video_references",
+      "image_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "wan3_0",
+   "name": "Wan 3.0",
+   "provider_name": "Wan",
+   "parameters": [
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration in seconds (2-30), or -1 to let the model choose the length from the prompt and media. Smart duration (-1) is only available for unlimited generations. Whole number.",
+     "min": -1,
+     "max": 30,
+     "default": 5
+    },
+    {
+     "name": "resolution",
+     "required": "optional",
+     "type": "string",
+     "description": "Output resolution: 480p, 720p, or 1080p.",
+     "options": [
+      "480p",
+      "720p",
+      "1080p"
+     ],
+     "default": "720p"
+    },
+    {
+     "name": "generate_audio",
+     "required": "optional",
+     "type": "bool",
+     "description": "Generate a native audio track for the output video.",
+     "default": true
+    },
+    {
+     "name": "enable_thinking",
+     "required": "optional",
+     "type": "bool",
+     "description": "Let the model reason about the prompt before generating (slower, better prompt adherence).",
+     "default": false
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "start_image",
+      "end_image",
+      "image_references",
+      "video_references",
+      "audio_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "auto",
+    "16:9",
+    "9:16",
+    "1:1",
+    "4:3",
+    "3:4"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "veo3_1",
+   "name": "Google Veo 3.1",
+   "provider_name": "Google",
+   "parameters": [
+    {
+     "name": "duration",
+     "required": "optional",
+     "type": "number",
+     "description": "Duration of the output video in seconds.",
+     "options": [
+      4,
+      6,
+      8
+     ],
+     "default": 8
+    },
+    {
+     "name": "quality",
+     "required": "optional",
+     "type": "string",
+     "description": "Output quality tier.",
+     "options": [
+      "basic",
+      "high",
+      "ultra"
+     ],
+     "default": "basic"
+    },
+    {
+     "name": "variant",
+     "required": "optional",
+     "type": "string",
+     "description": "Veo 3.1 variant: 'veo-3-1-preview' = best quality, 'veo-3-1-fast' = faster generation.",
+     "options": [
+      "veo-3-1-preview",
+      "veo-3-1-fast"
+     ],
+     "default": "veo-3-1-fast"
+    }
+   ],
+   "medias": [
+    {
+     "name": "medias",
+     "type": "image",
+     "roles": [
+      "start_image"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "16:9",
+    "9:16"
+   ],
+   "duration_range": null,
+   "output_type": "video"
+  },
+  {
+   "id": "nano_banana_2",
+   "name": "Nano Banana 2",
+   "provider_name": "Google",
+   "output_type": "image",
+   "parameters": [
+    {
+     "name": "resolution",
+     "type": "string",
+     "description": "Output resolution.",
+     "options": [
+      "1k",
+      "2k",
+      "4k"
+     ],
+     "default": "1k"
+    },
+    {
+     "name": "is_inpaint",
+     "type": "bool",
+     "description": "Whether to restrict the edit to the supplied mask.",
+     "default": false
+    }
+   ],
+   "medias": [
+    {
+     "roles": [
+      "image_references",
+      "mask"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "auto",
+    "1:1",
+    "3:2",
+    "2:3",
+    "4:3",
+    "3:4",
+    "4:5",
+    "5:4",
+    "9:16",
+    "16:9",
+    "21:9"
+   ]
+  },
+  {
+   "id": "nano_banana_pro",
+   "name": "Nano Banana Pro",
+   "provider_name": "Google",
+   "output_type": "image",
+   "parameters": [
+    {
+     "name": "resolution",
+     "type": "string",
+     "description": "Output resolution.",
+     "options": [
+      "1k",
+      "2k",
+      "4k"
+     ],
+     "default": "2k"
+    }
+   ],
+   "medias": [
+    {
+     "roles": [
+      "image_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "1:1",
+    "3:2",
+    "2:3",
+    "4:3",
+    "3:4",
+    "4:5",
+    "5:4",
+    "9:16",
+    "16:9",
+    "21:9"
+   ]
+  },
+  {
+   "id": "gpt_image_2",
+   "name": "GPT Image 2",
+   "provider_name": "OpenAI",
+   "output_type": "image",
+   "parameters": [
+    {
+     "name": "resolution",
+     "type": "string",
+     "description": "Output resolution",
+     "default": "1k",
+     "options": [
+      "1k",
+      "2k",
+      "4k"
+     ]
+    },
+    {
+     "name": "quality",
+     "type": "string",
+     "description": "Image quality",
+     "default": "low",
+     "options": [
+      "low",
+      "medium",
+      "high"
+     ]
+    }
+   ],
+   "medias": [
+    {
+     "roles": [
+      "image"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "1:1",
+    "4:3",
+    "3:4",
+    "16:9",
+    "21:9",
+    "9:16",
+    "3:2",
+    "2:3"
+   ]
+  },
+  {
+   "id": "seedream_v4_5",
+   "name": "Seedream 4.5",
+   "provider_name": "Bytedance",
+   "output_type": "image",
+   "parameters": [
+    {
+     "name": "quality",
+     "type": "string",
+     "description": "Output quality tier. 'basic' renders up to 4K; 'high' renders up to ~6K.",
+     "options": [
+      "basic",
+      "high"
+     ],
+     "default": "basic"
+    }
+   ],
+   "medias": [
+    {
+     "roles": [
+      "image_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "1:1",
+    "4:3",
+    "16:9",
+    "3:2",
+    "21:9",
+    "3:4",
+    "9:16",
+    "2:3"
+   ]
+  },
+  {
+   "id": "soul_2",
+   "name": "Higgsfield Soul 2.0",
+   "provider_name": "Higgsfield",
+   "output_type": "image",
+   "parameters": [
+    {
+     "name": "quality",
+     "type": "string",
+     "description": "Output quality tier shown as 1.5k or 2k",
+     "default": "2k",
+     "options": [
+      "1.5k",
+      "2k"
+     ]
+    }
+   ],
+   "medias": [
+    {
+     "roles": [
+      "image"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "1:1",
+    "16:9",
+    "9:16",
+    "4:3",
+    "3:4",
+    "3:2",
+    "2:3"
+   ]
+  },
+  {
+   "id": "flux_2",
+   "name": "FLUX.2",
+   "provider_name": "Black Forest Labs",
+   "output_type": "image",
+   "parameters": [
+    {
+     "name": "resolution",
+     "type": "string",
+     "description": "Output resolution.",
+     "options": [
+      "1k",
+      "2k"
+     ],
+     "default": "1k"
+    },
+    {
+     "name": "variant",
+     "type": "string",
+     "description": "FLUX.2 model variant.",
+     "options": [
+      "pro",
+      "flex",
+      "max"
+     ],
+     "default": "pro"
+    }
+   ],
+   "medias": [
+    {
+     "roles": [
+      "image_references"
+     ]
+    }
+   ],
+   "aspect_ratios": [
+    "1:1",
+    "4:3",
+    "3:4",
+    "16:9",
+    "9:16"
+   ]
+  },
+  {
+   "id": "image_background_remover",
+   "name": "Image Background Remover",
+   "provider_name": "",
+   "output_type": "image",
+   "parameters": [],
+   "medias": [
+    {
+     "roles": [
+      "image_references"
+     ]
+    }
+   ],
+   "aspect_ratios": []
+  },
+  {
+   "id": "bytedance_image_upscale",
+   "name": "Bytedance Image Upscale",
+   "provider_name": "",
+   "output_type": "image",
+   "parameters": [
+    {
+     "name": "resolution",
+     "type": "string",
+     "description": "Target upscale resolution.",
+     "options": [
+      "2k",
+      "4k"
+     ],
+     "default": "4k"
+    },
+    {
+     "name": "remove_bg",
+     "type": "bool",
+     "description": "Remove the background from the upscaled image.",
+     "default": false
+    }
+   ],
+   "medias": [
+    {
+     "roles": [
+      "image_references"
+     ]
+    }
+   ],
+   "aspect_ratios": []
+  }
+ ]
+}

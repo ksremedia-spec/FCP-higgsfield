@@ -14,7 +14,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "auto",
      "enum": [
       "auto",
       "21:9",
@@ -211,7 +210,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "auto",
      "enum": [
       "auto",
       "16:9",
@@ -277,7 +275,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "auto",
      "enum": [
       "auto",
       "16:9",
@@ -373,7 +370,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "auto",
      "enum": [
       "auto",
       "21:9",
@@ -465,7 +461,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "auto",
      "enum": [
       "auto",
       "21:9",
@@ -532,7 +527,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "21:9",
      "enum": [
       "21:9",
       "16:9",
@@ -585,7 +579,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "auto",
      "enum": [
       "auto",
       "21:9",
@@ -702,7 +695,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "16:9",
      "enum": [
       "16:9",
       "9:16",
@@ -765,7 +757,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "21:9",
      "enum": [
       "21:9",
       "16:9",
@@ -873,7 +864,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "auto",
      "enum": [
       "auto",
       "16:9",
@@ -944,7 +934,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "16:9",
      "enum": [
       "16:9",
       "9:16"
@@ -1007,7 +996,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "auto",
      "enum": [
       "auto",
       "1:1",
@@ -1068,7 +1056,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "1:1",
      "enum": [
       "1:1",
       "3:2",
@@ -1122,7 +1109,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "1:1",
      "enum": [
       "1:1",
       "4:3",
@@ -1183,7 +1169,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "1:1",
      "enum": [
       "1:1",
       "4:3",
@@ -1234,7 +1219,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "1:1",
      "enum": [
       "1:1",
       "16:9",
@@ -1284,7 +1268,6 @@ enum CatalogSnapshot {
   "json_schema": {
    "properties": {
     "aspect_ratio": {
-     "default": "1:1",
      "enum": [
       "1:1",
       "4:3",

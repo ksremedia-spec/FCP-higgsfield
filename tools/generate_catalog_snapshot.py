@@ -52,7 +52,8 @@ def model_schema(m, overrides):
             continue
         props[p["name"]] = param_schema(p)
     if m.get("aspect_ratios"):
-        props["aspect_ratio"] = {"enum": m["aspect_ratios"], "default": m["aspect_ratios"][0]}
+        # The catalog lists ratios but no default; the panel picks a sensible one.
+        props["aspect_ratio"] = {"enum": m["aspect_ratios"]}
     rng = m.get("duration_range")
     if rng and "duration" not in props:
         props["duration"] = {"type": "number", "minimum": rng["min"], "maximum": rng["max"], "default": rng["min"]}

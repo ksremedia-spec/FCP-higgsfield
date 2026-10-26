@@ -104,6 +104,22 @@ final class PanelTests: XCTestCase {
         XCTAssertFalse(model.canSubmit)
     }
 
+    func testPreferredAspectRatios() {
+        let model = makeModel()
+        XCTAssertEqual(model.drafts[.reframe]?.values["aspect_ratio"], "9:16")
+        XCTAssertEqual(model.drafts[.generateVideo]?.values["aspect_ratio"], "16:9")
+        model.operation = .generateVideo
+        model.selectModel("veo3_1")
+        XCTAssertEqual(model.draft.values["aspect_ratio"], "16:9")
+        XCTAssertEqual(model.draft.values["duration"], 8, "schema default")
+    }
+
+    func testFrameRateLabel() {
+        XCTAssertEqual(SourceWellView.frameRateLabel(23.976), "23.98")
+        XCTAssertEqual(SourceWellView.frameRateLabel(25), "25")
+        XCTAssertEqual(SourceWellView.frameRateLabel(29.97), "29.97")
+    }
+
     func testTimecodeFormatting() {
         let state = TimelineState(frameDuration: 0.04, playhead: 3605.5)
         XCTAssertEqual(state.timecode(state.playhead), "01:00:05:12")
@@ -179,6 +195,7 @@ final class PanelTests: XCTestCase {
         _ = NSApplication.shared
         let hosting = NSHostingView(rootView: view.frame(width: size.width, height: size.height))
         hosting.frame = CGRect(origin: .zero, size: size)
+        hosting.appearance = NSAppearance(named: .darkAqua)
         let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.appearance = NSAppearance(named: .darkAqua)
         window.contentView = hosting

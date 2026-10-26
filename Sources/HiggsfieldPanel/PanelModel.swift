@@ -335,6 +335,7 @@ public final class PanelModel: ObservableObject {
         guard d.jobType != jobType else { return }
         d.jobType = jobType
         d.values = defaultValues(for: jobType, keeping: d.values)
+        applyPreferredAspectRatio(&d, op: operation)
         draft = d
         settings.lastJobTypes[operation.rawValue] = jobType
         saveSettings()
@@ -352,8 +353,17 @@ public final class PanelModel: ObservableObject {
         let jt = jobType.flatMap { candidates.contains($0) ? $0 : nil } ?? candidates.first ?? ""
         var d = OperationDraft(operation: op, jobType: jt)
         d.values = defaultValues(for: jt, keeping: [:], operation: op)
-        if op == .reframe && d.values["aspect_ratio"] == nil { d.values["aspect_ratio"] = "9:16" }
+        applyPreferredAspectRatio(&d, op: op)
         return d
+    }
+
+    /// The catalog gives no default aspect ratio: Reframe starts on 9:16 (the
+    /// most common conversion), generation tools on 16:9, else the first option.
+    private func applyPreferredAspectRatio(_ d: inout OperationDraft, op: OperationKind) {
+        guard d.values["aspect_ratio"] == nil,
+              case .choice(let options)? = catalog.option(d.jobType)?.schema.parameter(named: "aspect_ratio")?.kind else { return }
+        let preferred: [JSONValue] = op == .reframe ? ["9:16", "16:9"] : ["16:9", "auto"]
+        d.values["aspect_ratio"] = preferred.first(where: options.contains) ?? options.first
     }
 
     /// Schema defaults, keeping compatible previous values (e.g. aspect ratio).

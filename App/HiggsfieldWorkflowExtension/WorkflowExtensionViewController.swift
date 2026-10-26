@@ -17,6 +17,8 @@ final class HiggsfieldWorkflowExtensionViewController: NSViewController {
         self.model = model
         let hosting = NSHostingView(rootView: PanelRootView(model: model))
         hosting.frame = NSRect(x: 0, y: 0, width: 400, height: 760)
+        // Match Final Cut Pro's dark interface (Apple's extension design guidance).
+        hosting.appearance = NSAppearance(named: .darkAqua)
         view = hosting
     }
 

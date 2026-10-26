@@ -165,11 +165,17 @@ struct SourceWellView: View {
     private func details(_ s: SourceClip) -> String {
         var parts: [String] = []
         if let w = s.info?.width, let h = s.info?.height { parts.append("\(w)×\(h)") }
-        if let fps = s.info?.frameRate { parts.append(String(format: "%.3g fps", fps)) }
+        if let fps = s.info?.frameRate { parts.append("\(Self.frameRateLabel(fps)) fps") }
         if let d = s.selectedDuration, s.kind == .video {
             parts.append(s.needsTrim ? "\(formatDuration(d)) selected" : formatDuration(d))
         }
         return parts.isEmpty ? s.fileURL.lastPathComponent : parts.joined(separator: " · ")
+    }
+
+    /// 23.976 → "23.98", 25 → "25".
+    static func frameRateLabel(_ fps: Double) -> String {
+        let rounded = (fps * 100).rounded() / 100
+        return rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.2f", rounded)
     }
 
     private func originLabel(_ o: SourceClip.Origin) -> String {

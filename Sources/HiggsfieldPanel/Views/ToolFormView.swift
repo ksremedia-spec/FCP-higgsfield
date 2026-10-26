@@ -239,9 +239,16 @@ struct SettingsCard: View {
                 LabeledContent("Model", value: current.name)
             }
             if let schema = model.currentModel?.schema {
-                ForEach(visibleParameters(schema)) { spec in
-                    ParameterControl(spec: spec, value: Binding(get: { model.draft.values[spec.name] ?? spec.defaultValue },
-                                                                set: { model.setValue($0, for: spec.name) }))
+                let visible = visibleParameters(schema)
+                ForEach(visible.filter { $0.kind != .text }) { spec in
+                    control(for: spec)
+                }
+                let advanced = visible.filter { $0.kind == .text }
+                if !advanced.isEmpty {
+                    DisclosureGroup("Advanced") {
+                        ForEach(advanced) { spec in control(for: spec) }
+                    }
+                    .font(.system(size: 12))
                 }
                 if model.operation.durationFollowsSource, schema.parameter(named: "duration") != nil || model.operation == .reframe {
                     Label("Duration follows the selected clip length.", systemImage: "link")
@@ -254,6 +261,11 @@ struct SettingsCard: View {
                 }
             }
         }
+    }
+
+    private func control(for spec: ParameterSpec) -> some View {
+        ParameterControl(spec: spec, value: Binding(get: { model.draft.values[spec.name] ?? spec.defaultValue },
+                                                    set: { model.setValue($0, for: spec.name) }))
     }
 
     private var schemaBadge: some View {

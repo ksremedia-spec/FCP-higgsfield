@@ -134,6 +134,10 @@ public struct HiggsfieldCLIBridge: Sendable {
             }
             do {
                 try process.run()
+                // Close this process's copies of the write ends so the readers see
+                // end of file as soon as the CLI exits.
+                try? out.fileHandleForWriting.close()
+                try? err.fileHandleForWriting.close()
                 DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
             } catch {
                 continuation.resume(throwing: HiggsfieldError.cliUnavailable("Couldn’t launch the Higgsfield CLI: \(error.localizedDescription)"))
@@ -142,27 +146,28 @@ public struct HiggsfieldCLIBridge: Sendable {
     }
 }
 
-/// Accumulates a pipe's output as it arrives.
+/// Reads a pipe to the end on its own thread, so a chatty CLI never blocks on
+/// a full pipe buffer, and `finish()` returns only once every byte is in.
+///
+/// An earlier version used `readabilityHandler`; a chunk could still be in
+/// that handler when the process ended, so `finish()` sometimes returned an
+/// empty token (seen once on 2026-10-26: "`hf auth token` failed (exit 0)").
 private final class PipeBuffer: @unchecked Sendable {
-    private let lock = NSLock()
+    private let done = DispatchSemaphore(value: 0)
     private var data = Data()
-    private let handle: FileHandle
 
     init(_ pipe: Pipe) {
-        handle = pipe.fileHandleForReading
-        handle.readabilityHandler = { [weak self] h in
-            let chunk = h.availableData
-            guard let self, !chunk.isEmpty else { return }
-            self.lock.lock(); self.data.append(chunk); self.lock.unlock()
+        let handle = pipe.fileHandleForReading
+        Thread.detachNewThread { [self] in
+            data = handle.readDataToEndOfFile()
+            done.signal()
         }
     }
 
-    /// Stops streaming and returns everything, including any unread tail.
+    /// Waits for end of file (the process has exited and closed its end) and
+    /// returns everything it wrote.
     func finish() -> Data {
-        handle.readabilityHandler = nil
-        let rest = handle.readDataToEndOfFile()
-        lock.lock(); defer { lock.unlock() }
-        data.append(rest)
+        done.wait()
         return data
     }
 }

@@ -8,7 +8,7 @@ public enum MediaKind: String, Codable, CaseIterable, Sendable {
     case audio
 
     /// Path segment used by `POST /developer/v2alpha/{segment}/{job_type}/generations`.
-    var generationSegment: String {
+    public var generationSegment: String {
         switch self {
         case .image: return "images"
         case .video: return "videos"

@@ -22,6 +22,9 @@ read-only commands (no credits are spent):
        [--prompt TEXT] [--set key=value]...
                                   credit estimate for a tool configuration
 
+  preview <operation> [--file PATH] [same options as run]
+                                  the exact request the panel would submit (placeholder media ids)
+
 commands that spend credits (require --yes):
   run <operation> --file PATH [--model JOB_TYPE] [--prompt TEXT] [--set key=value]...
       [--sketch PNG] [--mask PNG] [--out DIR] --yes
@@ -166,7 +169,8 @@ func run() async {
             guard let raw = info.jsonSchema else { fail("no json_schema in response") }
             let schema = ParameterSchema(jsonSchema: raw)
             print("job_type: \(info.jobType)  output: \(info.outputType?.rawValue ?? "?")  prompt: \(schema.acceptsPrompt)")
-            print("media roles: \(schema.mediaRoles.joined(separator: ", "))")
+            let roles = schema.mediaRoles.map { role in schema.mediaField(named: role)?.isArray == true ? role + "[]" : role }
+            print("media roles: \(roles.joined(separator: ", "))\(schema.mediaFields.isEmpty && schema.acceptsMedias ? "  (in params.medias)" : "")")
             for p in schema.parameters {
                 print("  \(p.name)\t\(p.kind)\tdefault=\(p.defaultValue?.displayString ?? "—")\(p.isRequired ? "\trequired" : "")")
             }
@@ -182,6 +186,21 @@ func run() async {
             let request = try RequestBuilder.prepare(d, catalog: cat)
             let cost = try await client.estimateCost(jobType: request.jobType, params: request.costParams)
             print("\(request.jobType): \(cost.creditsExact ?? cost.credits) credits  params=\(String(decoding: try JSONValue.object(request.costParams).encodedData(), as: UTF8.self))")
+
+        case "preview":
+            // Free: prints the submission the panel would send, with placeholder
+            // media ids in place of uploads. Nothing is uploaded or submitted.
+            guard args.positional.count > 1, let op = OperationKind(rawValue: args.positional[1]) else { fail("preview needs an operation") }
+            let client = try await makeClient(args)
+            let file = args.value("file").map { URL(fileURLWithPath: $0) }
+            let d = draft(from: args, operation: op, sourceFile: file)
+            let cat = await catalog(with: client, jobType: d.jobType)
+            let request = try RequestBuilder.prepare(d, catalog: cat)
+            let references = request.media.enumerated().map { i, item in
+                MediaReference.uploaded(id: String(format: "00000000-0000-4000-8000-%012d", i + 1), kind: item.kind)
+            }
+            print("POST /\(request.output.generationSegment)/\(request.jobType)/generations")
+            print(String(decoding: try JSONValue.object(["params": .object(request.submissionParams(references: references))]).encodedData(), as: UTF8.self))
 
         case "run":
             guard args.positional.count > 1, let op = OperationKind(rawValue: args.positional[1]) else { fail("run needs an operation") }

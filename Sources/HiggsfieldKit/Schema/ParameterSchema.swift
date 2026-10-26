@@ -58,13 +58,34 @@ public struct ParameterSpec: Equatable, Sendable, Identifiable {
     }
 }
 
+/// A media input declared as its own top-level property, e.g.
+/// `"video": {"$ref": "#/$defs/DeveloperAPIVideoInput"}` or
+/// `"image_references": {"type": "array", "items": {"$ref": …}}`.
+/// This is how the live `GET /job_types/{id}` schemas describe media
+/// (checked 2026-10-26), and how the official CLI 1.2.2 sends it:
+/// `"video": {"id": …, "type": "video_input"}`, `"video_references": [{…}]`.
+public struct MediaField: Equatable, Sendable {
+    public var name: String
+    public var isArray: Bool
+
+    public init(name: String, isArray: Bool) {
+        self.name = name
+        self.isArray = isArray
+    }
+}
+
 /// Parsed view of a job type's `json_schema`.
 public struct ParameterSchema: Equatable, Sendable {
-    /// Adjustable parameters, excluding `prompt` and `medias`, which have
+    /// Adjustable parameters, excluding `prompt` and media inputs, which have
     /// dedicated UI.
     public var parameters: [ParameterSpec]
-    /// Media roles accepted in `params.medias` (e.g. `video`, `start_image`).
+    /// Media roles the job type accepts: the top-level media properties
+    /// (`video`, `video_references`, `start_image`, …) or, for older schemas,
+    /// the roles listed in a `params.medias` array.
     public var mediaRoles: [String]
+    /// Top-level media properties. Empty when the schema uses the older
+    /// `params.medias` array (or takes no media).
+    public var mediaFields: [MediaField]
     public var acceptsPrompt: Bool
     public var acceptsMedias: Bool
     public var required: Set<String>
@@ -72,9 +93,10 @@ public struct ParameterSchema: Equatable, Sendable {
     public var propertyNames: Set<String>
 
     public init(parameters: [ParameterSpec], mediaRoles: [String], acceptsPrompt: Bool, acceptsMedias: Bool,
-                required: Set<String> = [], propertyNames: Set<String>? = nil) {
+                required: Set<String> = [], propertyNames: Set<String>? = nil, mediaFields: [MediaField] = []) {
         self.parameters = parameters
         self.mediaRoles = mediaRoles
+        self.mediaFields = mediaFields
         self.acceptsPrompt = acceptsPrompt
         self.acceptsMedias = acceptsMedias
         self.required = required
@@ -100,21 +122,71 @@ public struct ParameterSchema: Equatable, Sendable {
         let properties = root["properties"]?.objectValue ?? [:]
         let required = Set(root["required"]?.arrayValue?.compactMap(\.stringValue) ?? [])
         var specs: [ParameterSpec] = []
-        for name in properties.keys.sorted() where !Self.hiddenParameters.contains(name) {
+        var fields: [MediaField] = []
+        for name in properties.keys.sorted() where name != "medias" {
             guard let prop = properties[name] else { continue }
+            if let field = Self.mediaField(name: name, schema: prop, root: jsonSchema) {
+                fields.append(field)
+                continue
+            }
+            guard !Self.hiddenParameters.contains(name) else { continue }
             if let spec = Self.spec(name: name, schema: Self.resolve(prop, root: jsonSchema), required: required.contains(name)) {
                 specs.append(spec)
             }
         }
         let medias = properties["medias"].map { Self.resolve($0, root: jsonSchema) }
+        let roles: [String]
+        if let medias {
+            fields = []  // An explicit `medias` array wins; its roles are what the API reads.
+            roles = Self.roles(inMediasSchema: medias, root: jsonSchema)
+        } else {
+            roles = fields.sorted { Self.mediaOrder($0.name) < Self.mediaOrder($1.name) }.map(\.name)
+        }
         self.init(
             parameters: specs.sorted { Self.order($0.name) < Self.order($1.name) },
-            mediaRoles: medias.map { Self.roles(inMediasSchema: $0, root: jsonSchema) } ?? [],
+            mediaRoles: roles,
             acceptsPrompt: properties["prompt"] != nil,
-            acceptsMedias: medias != nil,
+            acceptsMedias: medias != nil || !fields.isEmpty,
             required: required,
-            propertyNames: Set(properties.keys)
+            propertyNames: Set(properties.keys),
+            mediaFields: fields
         )
+    }
+
+    public func mediaField(named name: String) -> MediaField? {
+        mediaFields.first { $0.name == name }
+    }
+
+    /// Display order for media roles: primary inputs first.
+    private static func mediaOrder(_ name: String) -> Int {
+        let preferred = ["video", "image", "start_image", "end_image", "video_references", "image_references",
+                         "ref_image", "mask", "audio_references"]
+        return preferred.firstIndex(of: name) ?? preferred.count
+    }
+
+    /// Recognises a media input property: an object with an `id` (a media
+    /// upload or earlier job), an array of them, or either one made nullable
+    /// with `anyOf`/`oneOf`.
+    static func mediaField(name: String, schema: JSONValue, root: JSONValue) -> MediaField? {
+        func isMediaObject(_ node: JSONValue) -> Bool {
+            let n = resolve(node, root: root)
+            guard let props = n["properties"]?.objectValue, props["id"] != nil else { return false }
+            return n["type"]?.stringValue == nil || n["type"]?.stringValue == "object"
+        }
+        func classify(_ node: JSONValue) -> Bool? {
+            let n = resolve(node, root: root)
+            if isMediaObject(n) { return false }
+            if let items = n["items"], isMediaObject(items) { return true }
+            return nil
+        }
+        if let isArray = classify(schema) { return MediaField(name: name, isArray: isArray) }
+        let n = resolve(schema, root: root)
+        for key in ["anyOf", "oneOf"] {
+            for alt in n[key]?.arrayValue ?? [] {
+                if let isArray = classify(alt) { return MediaField(name: name, isArray: isArray) }
+            }
+        }
+        return nil
     }
 
     /// Common parameters first, matching the order of the Higgsfield web UI.

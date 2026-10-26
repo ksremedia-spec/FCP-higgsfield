@@ -97,7 +97,10 @@ public enum OperationKind: String, CaseIterable, Codable, Sendable, Identifiable
         case .generateVideo:
             return ["seedance_2_0", "kling3_0", "veo3_1", "cinematic_studio_3_0", "wan3_0", "kling4_0", "seedance1_5", "minimax_hailuo"]
         case .generateImage:
-            return ["nano_banana_2", "nano_banana_pro", "gpt_image_2", "seedream_v4_5", "soul_2", "flux_2"]
+            // Live catalog 2026-10-26: "Nano Banana 2" is `nano_banana_flash`
+            // (`nano_banana_2` now resolves to Nano Banana Pro); Soul 2.0 is
+            // `text2image_soul_v2`.
+            return ["nano_banana_flash", "nano_banana_pro", "gpt_image_2", "seedream_v4_5", "text2image_soul_v2", "flux_2"]
         case .editVideo:
             return ["seedance_2_0", "kling_video_edit", "seedance_2_5", "flux_3_video_edit"]
         case .reframe:
@@ -107,7 +110,9 @@ public enum OperationKind: String, CaseIterable, Codable, Sendable, Identifiable
         case .upscale:
             return sourceKind == .image ? ["bytedance_image_upscale"] : ["topaz_video", "bytedance_video_upscale"]
         case .drawToEdit:
-            return sourceKind == .image ? ["nano_banana_2"] : ["draw_to_video"]
+            // Masked edits need `is_inpaint` + `mask`, which `nano_banana_flash`
+            // has and Nano Banana Pro does not (live schemas, 2026-10-26).
+            return sourceKind == .image ? ["nano_banana_flash"] : ["draw_to_video"]
         }
     }
 
@@ -131,7 +136,7 @@ public enum OperationKind: String, CaseIterable, Codable, Sendable, Identifiable
         switch (self, jobType) {
         case (.editVideo, "seedance_2_5"): return ["mode": "video_edit"]
         case (.editVideo, "kling4_0"): return ["mode": "video-edit"]
-        case (.drawToEdit, "nano_banana_2") where hasMask: return ["is_inpaint": true]
+        case (.drawToEdit, "nano_banana_flash") where hasMask: return ["is_inpaint": true]
         default: return [:]
         }
     }

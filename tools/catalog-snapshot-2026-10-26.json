@@ -1,1226 +1,3883 @@
 {
  "captured": "2026-10-26",
- "source": "Higgsfield job catalog as returned by the official Higgsfield MCP server (models_explore list/get), account plan 'plus'. Roles for 'reframe' follow the dedicated MCP reframe tool schema (role 'video', 'start_image', 'image') because the catalog listing and the tool disagree; the live json_schema from GET /job_types/{id} always takes precedence at runtime.",
- "overrides": {
-  "reframe": {
-   "roles": [
-    "video",
-    "start_image",
-    "image"
-   ]
-  }
- },
  "models": [
   {
-   "id": "cinematic_studio_3_0",
-   "name": "Cinema Studio Video 3.0",
-   "provider_name": "Higgsfield",
-   "parameters": [
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution (higher = more credits)",
-     "default": "720p",
-     "options": [
-      "480p",
-      "720p",
-      "1080p",
-      "4k"
-     ]
+   "display_name": "Bytedance Image Upscale",
+   "job_type": "bytedance_image_upscale",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "genre",
-     "required": "optional",
-     "type": "string",
-     "description": "Cinematic genre hint",
-     "default": "auto",
-     "options": [
-      "auto",
-      "action",
-      "horror",
-      "comedy",
-      "noir",
-      "drama",
-      "epic"
-     ]
+    "properties": {
+     "image_references": {
+      "description": "The image to upscale. Exactly one image is required.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "remove_bg": {
+      "default": false,
+      "description": "Remove the background from the upscaled image.",
+      "title": "Remove Bg",
+      "type": "boolean"
+     },
+     "resolution": {
+      "default": "4k",
+      "description": "Target upscale resolution.",
+      "oneOf": [
+       {
+        "const": "2k",
+        "title": "2K"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Resolution"
+     }
     },
-    {
-     "name": "generate_audio",
-     "required": "optional",
-     "type": "bool",
-     "description": "Generate audio for the video.",
-     "default": false
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "image",
-      "start_image",
-      "end_image"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "auto",
-    "21:9",
-    "16:9",
-    "4:3",
-    "1:1",
-    "3:4",
-    "9:16"
-   ],
-   "duration_range": {
-    "min": 4,
-    "max": 15
+    "title": "DeveloperAPIParams",
+    "type": "object"
    },
-   "output_type": "video"
+   "provider": "",
+   "type": "image"
   },
   {
-   "id": "flux_3_video_edit",
-   "name": "FLUX 3 Video Edit",
-   "provider_name": "Black Forest Labs",
-   "parameters": [
-    {
-     "name": "folder_id",
-     "required": "optional",
-     "type": "string",
-     "description": "Optional folder to place the generated output in.",
-     "nullable": true
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "video_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [],
-   "duration_range": null,
-   "output_type": "video"
+   "display_name": "Bytedance Video Upscale",
+   "job_type": "bytedance_video_upscale",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
+    },
+    "properties": {
+     "fps": {
+      "default": 24,
+      "description": "Output frame rate in frames per second (24-60).",
+      "maximum": 60,
+      "minimum": 24,
+      "title": "Fps",
+      "type": "integer"
+     },
+     "model_version": {
+      "default": "standard",
+      "description": "Upscaler model tier: 'standard' or higher-quality 'pro'.",
+      "oneOf": [
+       {
+        "const": "standard",
+        "title": "Standard"
+       },
+       {
+        "const": "pro",
+        "title": "Pro"
+       }
+      ],
+      "title": "Model Version"
+     },
+     "preset": {
+      "default": "common",
+      "description": "Content-type preset that tunes the upscaler for the source material.",
+      "oneOf": [
+       {
+        "const": "common",
+        "title": "Common"
+       },
+       {
+        "const": "aigc",
+        "title": "AI-generated content"
+       },
+       {
+        "const": "short_series",
+        "title": "Short series"
+       },
+       {
+        "const": "ugc",
+        "title": "User-generated content"
+       },
+       {
+        "const": "old_film",
+        "title": "Old film"
+       }
+      ],
+      "title": "Preset"
+     },
+     "resolution": {
+      "default": "2k",
+      "description": "Target output resolution.",
+      "oneOf": [
+       {
+        "const": "1080p",
+        "title": "1080p"
+       },
+       {
+        "const": "2k",
+        "title": "2K"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "video_references": {
+      "description": "Source video to upscale (exactly one).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "maxItems": 1,
+      "minItems": 1,
+      "title": "Video References",
+      "type": "array"
+     }
+    },
+    "required": [
+     "video_references"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "",
+   "type": "video"
   },
   {
-   "id": "video_background_remover",
-   "name": "Video Background Remover",
-   "provider_name": "",
-   "parameters": [],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "video_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [],
-   "duration_range": null,
-   "output_type": "video"
+   "display_name": "Cinematic Studio 3.0",
+   "job_type": "cinematic_studio_3_0",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIAudioInput": {
+      "description": "An AUDIO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'audio_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "audio_input",
+        "description": "Audio input type. A media_upload id ('media_input') resolves to 'audio_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIAudioInput",
+      "type": "object"
+     },
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     },
+     "DeveloperAPIShot": {
+      "properties": {
+       "duration": {
+        "default": 5,
+        "description": "Duration of this shot in seconds (1-12).",
+        "maximum": 12,
+        "minimum": 1,
+        "title": "Duration",
+        "type": "integer"
+       },
+       "preset_id": {
+        "anyOf": [
+         {
+          "format": "uuid",
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "description": "Preset id applied to this shot.",
+        "title": "Preset Id"
+       },
+       "prompt": {
+        "description": "Text description for this shot.",
+        "title": "Prompt",
+        "type": "string"
+       },
+       "speedramp": {
+        "default": "auto",
+        "description": "Speed-ramp time effect for this shot.",
+        "oneOf": [
+         {
+          "const": "auto",
+          "title": "Auto"
+         },
+         {
+          "const": "custom",
+          "title": "Custom"
+         },
+         {
+          "const": "linear",
+          "title": "Linear"
+         },
+         {
+          "const": "slowmo",
+          "title": "Slow Motion"
+         },
+         {
+          "const": "speedup",
+          "title": "Speed Up"
+         },
+         {
+          "const": "fast_to_slowmo",
+          "title": "Fast to Slow-mo"
+         },
+         {
+          "const": "slowmo_to_fast",
+          "title": "Slow-mo to Fast"
+         },
+         {
+          "const": "super_slowmo",
+          "title": "Super Slow-mo"
+         },
+         {
+          "const": "impact",
+          "title": "Impact"
+         }
+        ],
+        "title": "Speedramp"
+       }
+      },
+      "required": [
+       "prompt"
+      ],
+      "title": "DeveloperAPIShot",
+      "type": "object"
+     },
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
+    },
+    "properties": {
+     "aspect_ratio": {
+      "default": "16:9",
+      "description": "Aspect ratio of the output video.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "audio_references": {
+      "description": "Reference audio clips.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIAudioInput"
+      },
+      "title": "Audio References",
+      "type": "array"
+     },
+     "batch_size": {
+      "default": 1,
+      "description": "Number of videos to generate (1-4).",
+      "maximum": 4,
+      "minimum": 1,
+      "title": "Batch Size",
+      "type": "integer"
+     },
+     "duration": {
+      "default": 5,
+      "description": "Duration in seconds (min 4).",
+      "minimum": 4,
+      "title": "Duration",
+      "type": "integer"
+     },
+     "end_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Last frame of the output video."
+     },
+     "enhance_prompt": {
+      "default": false,
+      "description": "Automatically rewrite the prompt for richer detail.",
+      "title": "Enhance Prompt",
+      "type": "boolean"
+     },
+     "folder_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Folder to attach the generated jobs to.",
+      "title": "Folder Id"
+     },
+     "generate_audio": {
+      "default": false,
+      "description": "Generate native audio for the video.",
+      "title": "Generate Audio",
+      "type": "boolean"
+     },
+     "genre": {
+      "default": "auto",
+      "description": "Cinematic genre hint.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "action",
+        "title": "Action"
+       },
+       {
+        "const": "horror",
+        "title": "Horror"
+       },
+       {
+        "const": "comedy",
+        "title": "Comedy"
+       },
+       {
+        "const": "noir",
+        "title": "Noir"
+       },
+       {
+        "const": "drama",
+        "title": "Drama"
+       },
+       {
+        "const": "epic",
+        "title": "Epic"
+       }
+      ],
+      "title": "Genre"
+     },
+     "image_references": {
+      "description": "Generic reference images (style, composition, subject).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "multi_prompt": {
+      "description": "Per-shot prompts and durations (max 6) used when multi_shots is enabled.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIShot"
+      },
+      "maxItems": 6,
+      "title": "Multi Prompt",
+      "type": "array"
+     },
+     "multi_shot_mode": {
+      "default": "custom",
+      "description": "'auto' lets the model plan shots; 'custom' uses the given multi_prompt.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "custom",
+        "title": "Custom"
+       }
+      ],
+      "title": "Multi Shot Mode"
+     },
+     "multi_shots": {
+      "default": false,
+      "description": "Split the video into multiple shots driven by multi_prompt.",
+      "title": "Multi Shots",
+      "type": "boolean"
+     },
+     "preset_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Preset id from the presets endpoint.",
+      "title": "Preset Id"
+     },
+     "prompt": {
+      "description": "Text description of the video to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "prompt_language": {
+      "default": "zh",
+      "description": "Language the prompt is written in.",
+      "oneOf": [
+       {
+        "const": "en",
+        "title": "English"
+       },
+       {
+        "const": "zh",
+        "title": "Chinese"
+       }
+      ],
+      "title": "Prompt Language"
+     },
+     "resolution": {
+      "default": "720p",
+      "description": "Output resolution of the video.",
+      "oneOf": [
+       {
+        "const": "480p",
+        "title": "480p"
+       },
+       {
+        "const": "720p",
+        "title": "720p"
+       },
+       {
+        "const": "1080p",
+        "title": "1080p"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "speedramp": {
+      "default": "auto",
+      "description": "Speed-ramp time effect (slowmo, speedup, etc.).",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "linear",
+        "title": "Linear"
+       },
+       {
+        "const": "slowmo",
+        "title": "Slow Motion"
+       },
+       {
+        "const": "speedup",
+        "title": "Speed Up"
+       },
+       {
+        "const": "fast_to_slowmo",
+        "title": "Fast to Slow-mo"
+       },
+       {
+        "const": "slowmo_to_fast",
+        "title": "Slow-mo to Fast"
+       },
+       {
+        "const": "super_slowmo",
+        "title": "Super Slow-mo"
+       },
+       {
+        "const": "impact",
+        "title": "Impact"
+       }
+      ],
+      "title": "Speedramp"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "First frame of the output video."
+     },
+     "video_references": {
+      "description": "Reference video clips.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "title": "Video References",
+      "type": "array"
+     }
+    },
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Higgsfield",
+   "type": "video"
   },
   {
-   "id": "minimax_hailuo",
-   "name": "Minimax Hailuo",
-   "provider_name": "Hailuo",
-   "parameters": [
-    {
-     "name": "variant",
-     "required": "optional",
-     "type": "string",
-     "description": "Minimax Hailuo model variant.",
-     "options": [
-      "minimax",
-      "minimax-fast",
-      "minimax-2.3",
-      "minimax-2.3-fast"
-     ],
-     "default": "minimax-2.3"
+   "display_name": "Draw To Video",
+   "job_type": "draw_to_video",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     },
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration in seconds.",
-     "options": [
-      6,
-      10
-     ],
-     "default": 6
+    "properties": {
+     "aspect_ratio": {
+      "default": "auto",
+      "description": "Aspect ratio of the output video.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "duration": {
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Duration of the output video in seconds.",
+      "title": "Duration"
+     },
+     "enhancer": {
+      "default": true,
+      "description": "Enhance the prompt before generation.",
+      "title": "Enhancer",
+      "type": "boolean"
+     },
+     "generate_audio": {
+      "default": false,
+      "description": "Generate native audio for the video.",
+      "title": "Generate Audio",
+      "type": "boolean"
+     },
+     "image_references": {
+      "description": "The sketch image to animate. Provide exactly one.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "prompt": {
+      "description": "Text description guiding the animated video.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "ref_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Optional reference image guiding style and appearance."
+     },
+     "resolution": {
+      "default": "720p",
+      "description": "Output resolution.",
+      "oneOf": [
+       {
+        "const": "480p",
+        "title": "480p"
+       },
+       {
+        "const": "720p",
+        "title": "720p"
+       },
+       {
+        "const": "1080p",
+        "title": "1080p"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "video": {
+      "$ref": "#/$defs/DeveloperAPIVideoInput",
+      "description": "Source video that drives the motion and timing."
+     }
     },
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution. '512' is incompatible with end_image, and is not supported by the 'minimax-2.3' / 'minimax-2.3-fast' variants.",
-     "options": [
-      "512",
-      "768",
-      "1080"
-     ],
-     "default": "768"
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "start_image",
-      "end_image"
-     ]
-    }
-   ],
-   "aspect_ratios": [],
-   "duration_range": null,
-   "output_type": "video"
+    "required": [
+     "prompt",
+     "video"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "",
+   "type": "video"
   },
   {
-   "id": "seedance1_5",
-   "name": "Seedance 1.5 Pro",
-   "provider_name": "Bytedance",
-   "parameters": [
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration of the output video in seconds.",
-     "options": [
-      4,
-      8,
-      12
-     ],
-     "default": 4
+   "display_name": "FLUX.2",
+   "job_type": "flux_2",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution of the video.",
-     "options": [
-      "480p",
-      "720p",
-      "1080p"
-     ],
-     "default": "720p"
+    "properties": {
+     "aspect_ratio": {
+      "default": "1:1",
+      "description": "Aspect ratio of the output image.",
+      "oneOf": [
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "image_references": {
+      "description": "Reference images (style, composition, subject).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "prompt": {
+      "description": "Text description of the image to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "1k",
+      "description": "Output resolution.",
+      "oneOf": [
+       {
+        "const": "1k",
+        "title": "1K"
+       },
+       {
+        "const": "2k",
+        "title": "2K"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "variant": {
+      "default": "pro",
+      "description": "FLUX.2 model variant.",
+      "oneOf": [
+       {
+        "const": "pro",
+        "title": "Pro"
+       },
+       {
+        "const": "flex",
+        "title": "Flex"
+       },
+       {
+        "const": "max",
+        "title": "Max"
+       }
+      ],
+      "title": "Variant"
+     }
     },
-    {
-     "name": "generate_audio",
-     "required": "optional",
-     "type": "bool",
-     "description": "Generate native audio for the video. Set false for a silent video.",
-     "default": true
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "start_image",
-      "end_image"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "auto",
-    "16:9",
-    "9:16",
-    "4:3",
-    "3:4",
-    "1:1",
-    "21:9"
-   ],
-   "duration_range": null,
-   "output_type": "video"
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Black Forest Labs",
+   "type": "image"
   },
   {
-   "id": "seedance_2_0",
-   "name": "Seedance 2.0",
-   "provider_name": "Bytedance",
-   "parameters": [
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration in seconds (4-15). Whole number.",
-     "min": 4,
-     "max": 15,
-     "default": 5
+   "display_name": "FLUX 3 Video Edit",
+   "job_type": "flux_3_video_edit",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution supported by standard mode.",
-     "options": [
-      "480p",
-      "720p",
-      "1080p",
-      "4k"
-     ],
-     "default": "720p"
+    "properties": {
+     "folder_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Optional folder to place the generated output in.",
+      "title": "Folder Id"
+     },
+     "prompt": {
+      "description": "Instructions describing how to edit the source video.",
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Prompt",
+      "type": "string"
+     },
+     "video_references": {
+      "description": "Exactly one MP4 video, up to 2 GiB, with each side at least 160 pixels. Only the first 15 seconds are edited. The clip must contain at least 17 frames after conversion to 24 fps. Large inputs are compressed to fit the provider limit of 50 MiB.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "maxItems": 1,
+      "minItems": 1,
+      "title": "Video References",
+      "type": "array"
+     }
     },
-    {
-     "name": "mode",
-     "required": "optional",
-     "type": "string",
-     "description": "Generation mode. Only 'std' is offered for this account; 'std' requires a Plus plan or higher (Pro on legacy plans) \u2014 submitting on a lower plan is refused with job_minimum_pro_plan_required.",
-     "options": [
-      "std"
-     ],
-     "default": "std"
-    },
-    {
-     "name": "bitrate_mode",
-     "required": "optional",
-     "type": "string",
-     "description": "'standard' = normal output bitrate; 'high' = higher bitrate output.",
-     "options": [
-      "standard",
-      "high"
-     ],
-     "default": "standard"
-    },
-    {
-     "name": "genre",
-     "required": "optional",
-     "type": "string",
-     "description": "Cinematic genre hint.",
-     "options": [
-      "auto",
-      "action",
-      "horror",
-      "comedy",
-      "noir",
-      "drama",
-      "epic"
-     ],
-     "default": "auto"
-    },
-    {
-     "name": "generate_audio",
-     "required": "optional",
-     "type": "bool",
-     "description": "Generate native audio for the video. Set false for a silent video. Independent of audio_references.",
-     "default": true
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "start_image",
-      "end_image",
-      "image_references",
-      "video_references",
-      "audio_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "auto",
-    "16:9",
-    "9:16",
-    "4:3",
-    "3:4",
-    "1:1",
-    "21:9"
-   ],
-   "duration_range": null,
-   "output_type": "video"
+    "required": [
+     "prompt",
+     "video_references"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Black Forest Labs",
+   "type": "video"
   },
   {
-   "id": "seedance_2_5",
-   "name": "Seedance 2.5",
-   "provider_name": "Bytedance",
-   "parameters": [
-    {
-     "name": "mode",
-     "required": "optional",
-     "type": "string",
-     "description": "Generation mode: 't2v' for prompt-only generation, 'omni_reference' for image, video, or audio references, 'video_edit' to edit one reference video (billed by that video's duration; 'duration' and 'aspect_ratio' are ignored), or 'video_extension' to extend a reference video ('aspect_ratio' is ignored \u2014 the output follows the extended video).",
-     "options": [
-      "t2v",
-      "omni_reference",
-      "video_edit",
-      "video_extension"
-     ],
-     "default": "t2v"
+   "display_name": "GPT Image 2",
+   "job_type": "gpt_image_2",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration in seconds (4-30). Whole number.",
-     "min": 4,
-     "max": 30,
-     "default": 5
+    "properties": {
+     "aspect_ratio": {
+      "default": "1:1",
+      "description": "Aspect ratio of the output image.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "3:2",
+        "title": "3:2"
+       },
+       {
+        "const": "2:3",
+        "title": "2:3"
+       },
+       {
+        "const": "4:5",
+        "title": "4:5"
+       },
+       {
+        "const": "5:4",
+        "title": "5:4"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "background": {
+      "anyOf": [
+       {
+        "oneOf": [
+         {
+          "const": "auto",
+          "title": "Auto"
+         },
+         {
+          "const": "opaque",
+          "title": "Opaque"
+         },
+         {
+          "const": "transparent",
+          "title": "Transparent"
+         }
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Background of the output image: transparent for a cut-out PNG, opaque for a filled background, auto to let the model decide. Omit to keep the model default.",
+      "title": "Background"
+     },
+     "image_references": {
+      "description": "Reference images (style, composition, subject).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "is_inpaint": {
+      "default": false,
+      "description": "Whether to restrict the edit to the supplied mask.",
+      "title": "Is Inpaint",
+      "type": "boolean"
+     },
+     "mask": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Full-frame mask for regional image editing."
+     },
+     "prompt": {
+      "description": "Text description of the image to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "quality": {
+      "default": "high",
+      "description": "Rendering quality / detail level.",
+      "oneOf": [
+       {
+        "const": "low",
+        "title": "Low"
+       },
+       {
+        "const": "medium",
+        "title": "Medium"
+       },
+       {
+        "const": "high",
+        "title": "High"
+       }
+      ],
+      "title": "Quality"
+     },
+     "resolution": {
+      "default": "2k",
+      "description": "Output resolution.",
+      "oneOf": [
+       {
+        "const": "1k",
+        "title": "1K"
+       },
+       {
+        "const": "2k",
+        "title": "2K"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Resolution"
+     }
     },
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution: 480p, 720p, or 1080p.",
-     "options": [
-      "480p",
-      "720p",
-      "1080p"
-     ],
-     "default": "720p"
-    },
-    {
-     "name": "generate_audio",
-     "required": "optional",
-     "type": "bool",
-     "description": "Generate audio for the output video.",
-     "default": true
-    },
-    {
-     "name": "bitrate_mode",
-     "required": "optional",
-     "type": "string",
-     "description": "'standard' = normal output bitrate; 'high' = higher bitrate output.",
-     "options": [
-      "standard",
-      "high"
-     ],
-     "default": "standard"
-    },
-    {
-     "name": "extension_mode",
-     "required": "optional",
-     "type": "string",
-     "description": "Extension direction; required for mode 'video_extension' and not allowed otherwise.",
-     "options": [
-      "backward",
-      "forward"
-     ],
-     "nullable": true
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "start_image",
-      "end_image",
-      "image_references",
-      "video_references",
-      "audio_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "auto",
-    "21:9",
-    "16:9",
-    "4:3",
-    "1:1",
-    "3:4",
-    "9:16"
-   ],
-   "duration_range": null,
-   "output_type": "video"
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "OpenAI",
+   "type": "image"
   },
   {
-   "id": "draw_to_video",
-   "name": "Draw To Video",
-   "provider_name": "",
-   "parameters": [
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration of the output video in seconds.",
-     "nullable": true
+   "display_name": "Image Background Remover",
+   "job_type": "image_background_remover",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution.",
-     "options": [
-      "480p",
-      "720p",
-      "1080p"
-     ],
-     "default": "720p"
+    "properties": {
+     "image_references": {
+      "description": "Exactly one image whose background will be removed.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     }
     },
-    {
-     "name": "generate_audio",
-     "required": "optional",
-     "type": "bool",
-     "description": "Generate native audio for the video.",
-     "default": false
-    },
-    {
-     "name": "enhancer",
-     "required": "optional",
-     "type": "bool",
-     "description": "Enhance the prompt before generation.",
-     "default": true
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "video",
-      "image_references",
-      "ref_image"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "auto",
-    "21:9",
-    "16:9",
-    "4:3",
-    "1:1",
-    "3:4",
-    "9:16"
-   ],
-   "duration_range": null,
-   "output_type": "video"
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "",
+   "type": "image"
   },
   {
-   "id": "reframe",
-   "name": "Reframe",
-   "provider_name": "",
-   "parameters": [
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution.",
-     "options": [
-      "480p",
-      "720p",
-      "1080p"
-     ],
-     "default": "720p"
+   "display_name": "Kling v3.0",
+   "job_type": "kling3_0",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration of the source video in seconds (used for pricing).",
-     "nullable": true
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "video_references",
-      "start_image",
-      "image_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "21:9",
-    "16:9",
-    "4:3",
-    "1:1",
-    "3:4",
-    "9:16"
-   ],
-   "duration_range": null,
-   "output_type": "video"
+    "properties": {
+     "aspect_ratio": {
+      "default": "16:9",
+      "description": "Aspect ratio of the output video.",
+      "oneOf": [
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "duration": {
+      "default": 5,
+      "description": "Duration in seconds (3-15).",
+      "maximum": 15,
+      "minimum": 3,
+      "title": "Duration",
+      "type": "integer"
+     },
+     "end_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Last frame of the output video."
+     },
+     "mode": {
+      "default": "std",
+      "description": "Generation mode: 'std' (standard), 'pro' (higher quality), or '4k' (4K resolution).",
+      "oneOf": [
+       {
+        "const": "std",
+        "title": "Standard"
+       },
+       {
+        "const": "pro",
+        "title": "Pro"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Mode"
+     },
+     "prompt": {
+      "description": "Text description of the video to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "sound": {
+      "default": "on",
+      "description": "Generate audio. Use 'off' for silent video and lower credits.",
+      "oneOf": [
+       {
+        "const": "on",
+        "title": "On"
+       },
+       {
+        "const": "off",
+        "title": "Off"
+       }
+      ],
+      "title": "Sound"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "First frame of the output video."
+     }
+    },
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Kling",
+   "type": "video"
   },
   {
-   "id": "topaz_video",
-   "name": "Topaz",
-   "provider_name": "",
-   "parameters": [
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Target output resolution.",
-     "options": [
-      "1080p",
-      "2160p"
-     ],
-     "default": "1080p"
+   "display_name": "Kling 4.0",
+   "job_type": "kling4_0",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     },
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "enhancement",
-     "required": "optional",
-     "type": "string",
-     "description": "Enhancement settings (omit to use Topaz defaults).",
-     "nullable": true
+    "properties": {
+     "aspect_ratio": {
+      "default": "16:9",
+      "description": "Output aspect ratio; ignored in image-to-video. Auto requires references.",
+      "oneOf": [
+       {
+        "const": "21:9",
+        "title": "21:9"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "auto",
+        "title": "Auto"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "duration": {
+      "default": 10,
+      "description": "Duration in whole seconds (3-30).",
+      "maximum": 30,
+      "minimum": 3,
+      "title": "Duration",
+      "type": "integer"
+     },
+     "end_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Optional last frame; included in the ten-image limit."
+     },
+     "image_references": {
+      "description": "Ordered middle frames in image-to-video; reference images in other modes.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "maxItems": 10,
+      "title": "Image References",
+      "type": "array"
+     },
+     "kling_element_ids": {
+      "description": "Accessible, ready Kling element IDs or reference UUIDs (up to seven).",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 7,
+      "title": "Kling Element Ids",
+      "type": "array"
+     },
+     "mode": {
+      "default": "text-to-video",
+      "description": "Generation mode.",
+      "oneOf": [
+       {
+        "const": "text-to-video",
+        "title": "Text to video"
+       },
+       {
+        "const": "image-to-video",
+        "title": "Image to video"
+       },
+       {
+        "const": "reference-to-video",
+        "title": "Reference to video"
+       },
+       {
+        "const": "video-edit",
+        "title": "Video edit"
+       }
+      ],
+      "title": "Mode"
+     },
+     "prompt": {
+      "default": "",
+      "description": "Video description; optional in image-to-video.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "1080p",
+      "description": "Output resolution.",
+      "oneOf": [
+       {
+        "const": "720p",
+        "title": "720p"
+       },
+       {
+        "const": "1080p",
+        "title": "1080p"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Optional first frame; included in the ten-image limit."
+     },
+     "video_references": {
+      "description": "In video-edit: the base video first, then reference videos.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "maxItems": 5,
+      "title": "Video References",
+      "type": "array"
+     }
     },
-    {
-     "name": "frame_interpolation",
-     "required": "optional",
-     "type": "string",
-     "description": "Frame interpolation (omit to disable).",
-     "nullable": true
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "video_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "auto",
-    "21:9",
-    "16:9",
-    "4:3",
-    "1:1",
-    "3:4",
-    "9:16"
-   ],
-   "duration_range": null,
-   "output_type": "video"
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Kling",
+   "type": "video"
   },
   {
-   "id": "bytedance_video_upscale",
-   "name": "Bytedance Video Upscale",
-   "provider_name": "",
-   "parameters": [
-    {
-     "name": "fps",
-     "required": "optional",
-     "type": "number",
-     "description": "Output frame rate in frames per second (24-60). Whole number.",
-     "min": 24,
-     "max": 60,
-     "default": 24
+   "display_name": "Kling 3.0 Omni Edit",
+   "job_type": "kling_video_edit",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     },
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Target output resolution.",
-     "options": [
-      "1080p",
-      "2k",
-      "4k"
-     ],
-     "default": "2k"
+    "properties": {
+     "image_references": {
+      "description": "Optional reference images for the edit (up to four).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "maxItems": 4,
+      "title": "Image References",
+      "type": "array"
+     },
+     "mode": {
+      "default": "pro",
+      "description": "Output quality: Standard, Pro, or 4K.",
+      "oneOf": [
+       {
+        "const": "std",
+        "title": "Standard"
+       },
+       {
+        "const": "pro",
+        "title": "Pro"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Mode"
+     },
+     "prompt": {
+      "description": "Instructions describing the video edit.",
+      "minLength": 1,
+      "title": "Prompt",
+      "type": "string"
+     },
+     "video_references": {
+      "description": "Source video to edit (exactly one).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "maxItems": 1,
+      "minItems": 1,
+      "title": "Video References",
+      "type": "array"
+     }
     },
-    {
-     "name": "preset",
-     "required": "optional",
-     "type": "string",
-     "description": "Content-type preset that tunes the upscaler for the source material.",
-     "options": [
-      "common",
-      "aigc",
-      "short_series",
-      "ugc",
-      "old_film"
-     ],
-     "default": "common"
-    },
-    {
-     "name": "model_version",
-     "required": "optional",
-     "type": "string",
-     "description": "Upscaler model tier: 'standard' or higher-quality 'pro'.",
-     "options": [
-      "standard",
-      "pro"
-     ],
-     "default": "standard"
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "video_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [],
-   "duration_range": null,
-   "output_type": "video"
+    "required": [
+     "prompt",
+     "video_references"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Kling",
+   "type": "video"
   },
   {
-   "id": "kling3_0",
-   "name": "Kling v3.0",
-   "provider_name": "Kling",
-   "parameters": [
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration in seconds (3-15). Whole number.",
-     "min": 3,
-     "max": 15,
-     "default": 5
+   "display_name": "Minimax Hailuo",
+   "job_type": "minimax_hailuo",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "mode",
-     "required": "optional",
-     "type": "string",
-     "description": "Generation mode: 'std' (standard), 'pro' (higher quality), or '4k' (4K resolution).",
-     "options": [
-      "std",
-      "pro",
-      "4k"
-     ],
-     "default": "std"
+    "properties": {
+     "duration": {
+      "default": 6,
+      "description": "Duration in seconds.",
+      "oneOf": [
+       {
+        "const": 6,
+        "title": "6 seconds"
+       },
+       {
+        "const": 10,
+        "title": "10 seconds"
+       }
+      ],
+      "title": "Duration"
+     },
+     "end_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Last frame of the output video. Not supported with resolution '512'."
+     },
+     "prompt": {
+      "description": "Text description of the video to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "768",
+      "description": "Output resolution. '512' is incompatible with end_image, and is not supported by the 'minimax-2.3' / 'minimax-2.3-fast' variants.",
+      "oneOf": [
+       {
+        "const": "512",
+        "title": "512p"
+       },
+       {
+        "const": "768",
+        "title": "768p"
+       },
+       {
+        "const": "1080",
+        "title": "1080p"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "First frame of the output video."
+     },
+     "variant": {
+      "default": "minimax-2.3",
+      "description": "Minimax Hailuo model variant.",
+      "oneOf": [
+       {
+        "const": "minimax",
+        "title": "Minimax"
+       },
+       {
+        "const": "minimax-fast",
+        "title": "Minimax Fast"
+       },
+       {
+        "const": "minimax-2.3",
+        "title": "Minimax 2.3"
+       },
+       {
+        "const": "minimax-2.3-fast",
+        "title": "Minimax 2.3 Fast"
+       }
+      ],
+      "title": "Variant"
+     }
     },
-    {
-     "name": "sound",
-     "required": "optional",
-     "type": "string",
-     "description": "Generate audio. Use 'off' for silent video and lower credits.",
-     "options": [
-      "on",
-      "off"
-     ],
-     "default": "on"
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "start_image",
-      "end_image"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "16:9",
-    "9:16",
-    "1:1"
-   ],
-   "duration_range": null,
-   "output_type": "video"
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Hailuo",
+   "type": "video"
   },
   {
-   "id": "kling4_0",
-   "name": "Kling 4.0",
-   "provider_name": "Kling",
-   "parameters": [
-    {
-     "name": "mode",
-     "required": "optional",
-     "type": "string",
-     "description": "Generation mode.",
-     "options": [
-      "text-to-video",
-      "image-to-video",
-      "reference-to-video",
-      "video-edit"
-     ],
-     "default": "text-to-video"
+   "display_name": "Nano Banana 2",
+   "job_type": "nano_banana_flash",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution.",
-     "options": [
-      "720p",
-      "1080p"
-     ],
-     "default": "1080p"
+    "properties": {
+     "aspect_ratio": {
+      "default": "1:1",
+      "description": "Aspect ratio of the output image.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "3:2",
+        "title": "3:2"
+       },
+       {
+        "const": "2:3",
+        "title": "2:3"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "4:5",
+        "title": "4:5"
+       },
+       {
+        "const": "5:4",
+        "title": "5:4"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "image_references": {
+      "description": "Reference images for image-to-image generation.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "is_inpaint": {
+      "default": false,
+      "description": "Whether to restrict the edit to the supplied mask.",
+      "title": "Is Inpaint",
+      "type": "boolean"
+     },
+     "mask": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Full-frame mask for regional image editing."
+     },
+     "prompt": {
+      "description": "Text description of the image to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "1k",
+      "description": "Output resolution.",
+      "oneOf": [
+       {
+        "const": "1k",
+        "title": "1K"
+       },
+       {
+        "const": "2k",
+        "title": "2K"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Resolution"
+     }
     },
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration in whole seconds (3-30). Whole number.",
-     "min": 3,
-     "max": 30,
-     "default": 10
-    },
-    {
-     "name": "kling_element_ids",
-     "required": "optional",
-     "type": "string_array",
-     "description": "Accessible, ready Kling element IDs or reference UUIDs (up to seven)."
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "start_image",
-      "end_image",
-      "image_references",
-      "video_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "21:9",
-    "16:9",
-    "9:16",
-    "1:1",
-    "auto"
-   ],
-   "duration_range": null,
-   "output_type": "video"
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Google",
+   "type": "image"
   },
   {
-   "id": "kling_video_edit",
-   "name": "Kling 3.0 Omni Edit",
-   "provider_name": "Kling",
-   "parameters": [
-    {
-     "name": "mode",
-     "required": "optional",
-     "type": "string",
-     "description": "Output quality: Standard, Pro, or 4K.",
-     "options": [
-      "std",
-      "pro",
-      "4k"
-     ],
-     "default": "pro"
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "video_references",
-      "image_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [],
-   "duration_range": null,
-   "output_type": "video"
-  },
-  {
-   "id": "wan3_0",
-   "name": "Wan 3.0",
-   "provider_name": "Wan",
-   "parameters": [
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration in seconds (2-30), or -1 to let the model choose the length from the prompt and media. Smart duration (-1) is only available for unlimited generations. Whole number.",
-     "min": -1,
-     "max": 30,
-     "default": 5
+   "display_name": "Nano Banana Pro",
+   "job_type": "nano_banana_pro",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "resolution",
-     "required": "optional",
-     "type": "string",
-     "description": "Output resolution: 480p, 720p, or 1080p.",
-     "options": [
-      "480p",
-      "720p",
-      "1080p"
-     ],
-     "default": "720p"
+    "properties": {
+     "aspect_ratio": {
+      "default": "1:1",
+      "description": "Aspect ratio of the output image.",
+      "oneOf": [
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "3:2",
+        "title": "3:2"
+       },
+       {
+        "const": "2:3",
+        "title": "2:3"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "4:5",
+        "title": "4:5"
+       },
+       {
+        "const": "5:4",
+        "title": "5:4"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "image_references": {
+      "description": "Reference images (style, composition, or subject anchor). At most 14.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "prompt": {
+      "description": "Text description of the image to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "2k",
+      "description": "Output resolution.",
+      "oneOf": [
+       {
+        "const": "1k",
+        "title": "1K"
+       },
+       {
+        "const": "2k",
+        "title": "2K"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Resolution"
+     }
     },
-    {
-     "name": "generate_audio",
-     "required": "optional",
-     "type": "bool",
-     "description": "Generate a native audio track for the output video.",
-     "default": true
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Google",
+   "type": "image"
+  },
+  {
+   "display_name": "Reframe",
+   "job_type": "reframe",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     },
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "enable_thinking",
-     "required": "optional",
-     "type": "bool",
-     "description": "Let the model reason about the prompt before generating (slower, better prompt adherence).",
-     "default": false
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "start_image",
-      "end_image",
-      "image_references",
-      "video_references",
-      "audio_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "auto",
-    "16:9",
-    "9:16",
-    "1:1",
-    "4:3",
-    "3:4"
-   ],
-   "duration_range": null,
-   "output_type": "video"
-  },
-  {
-   "id": "veo3_1",
-   "name": "Google Veo 3.1",
-   "provider_name": "Google",
-   "parameters": [
-    {
-     "name": "duration",
-     "required": "optional",
-     "type": "number",
-     "description": "Duration of the output video in seconds.",
-     "options": [
-      4,
-      6,
-      8
-     ],
-     "default": 8
+    "properties": {
+     "aspect_ratio": {
+      "description": "Target aspect ratio to reframe the video into.",
+      "oneOf": [
+       {
+        "const": "21:9",
+        "title": "21:9"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "duration": {
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0,
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Duration of the source video in seconds (used for pricing).",
+      "title": "Duration"
+     },
+     "image_references": {
+      "description": "Optional reference images to guide the reframing (at most 2).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "maxItems": 2,
+      "title": "Image References",
+      "type": "array"
+     },
+     "resolution": {
+      "default": "720p",
+      "description": "Output resolution.",
+      "oneOf": [
+       {
+        "const": "480p",
+        "title": "480p"
+       },
+       {
+        "const": "720p",
+        "title": "720p"
+       },
+       {
+        "const": "1080p",
+        "title": "1080p"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Optional first-frame image to anchor the reframed video."
+     },
+     "video_references": {
+      "description": "The source video to reframe. Provide exactly one video.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "title": "Video References",
+      "type": "array"
+     }
     },
-    {
-     "name": "quality",
-     "required": "optional",
-     "type": "string",
-     "description": "Output quality tier.",
-     "options": [
-      "basic",
-      "high",
-      "ultra"
-     ],
-     "default": "basic"
+    "required": [
+     "aspect_ratio"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "",
+   "type": "video"
+  },
+  {
+   "display_name": "Seedance 1.5 Pro",
+   "job_type": "seedance1_5",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "variant",
-     "required": "optional",
-     "type": "string",
-     "description": "Veo 3.1 variant: 'veo-3-1-preview' = best quality, 'veo-3-1-fast' = faster generation.",
-     "options": [
-      "veo-3-1-preview",
-      "veo-3-1-fast"
-     ],
-     "default": "veo-3-1-fast"
-    }
-   ],
-   "medias": [
-    {
-     "name": "medias",
-     "type": "image",
-     "roles": [
-      "start_image"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "16:9",
-    "9:16"
-   ],
-   "duration_range": null,
-   "output_type": "video"
-  },
-  {
-   "id": "nano_banana_2",
-   "name": "Nano Banana 2",
-   "provider_name": "Google",
-   "output_type": "image",
-   "parameters": [
-    {
-     "name": "resolution",
-     "type": "string",
-     "description": "Output resolution.",
-     "options": [
-      "1k",
-      "2k",
-      "4k"
-     ],
-     "default": "1k"
+    "properties": {
+     "aspect_ratio": {
+      "default": "16:9",
+      "description": "Aspect ratio of the output video.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "duration": {
+      "default": 4,
+      "description": "Duration of the output video in seconds.",
+      "oneOf": [
+       {
+        "const": 4,
+        "title": "4 seconds"
+       },
+       {
+        "const": 8,
+        "title": "8 seconds"
+       },
+       {
+        "const": 12,
+        "title": "12 seconds"
+       }
+      ],
+      "title": "Duration"
+     },
+     "end_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Last frame of the output video."
+     },
+     "generate_audio": {
+      "default": true,
+      "description": "Generate native audio for the video. Set false for a silent video.",
+      "title": "Generate Audio",
+      "type": "boolean"
+     },
+     "prompt": {
+      "description": "Text description of the video to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "720p",
+      "description": "Output resolution of the video.",
+      "oneOf": [
+       {
+        "const": "480p",
+        "title": "480p"
+       },
+       {
+        "const": "720p",
+        "title": "720p"
+       },
+       {
+        "const": "1080p",
+        "title": "1080p"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "First frame of the output video."
+     }
     },
-    {
-     "name": "is_inpaint",
-     "type": "bool",
-     "description": "Whether to restrict the edit to the supplied mask.",
-     "default": false
-    }
-   ],
-   "medias": [
-    {
-     "roles": [
-      "image_references",
-      "mask"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "auto",
-    "1:1",
-    "3:2",
-    "2:3",
-    "4:3",
-    "3:4",
-    "4:5",
-    "5:4",
-    "9:16",
-    "16:9",
-    "21:9"
-   ]
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Bytedance",
+   "type": "video"
   },
   {
-   "id": "nano_banana_pro",
-   "name": "Nano Banana Pro",
-   "provider_name": "Google",
-   "output_type": "image",
-   "parameters": [
-    {
-     "name": "resolution",
-     "type": "string",
-     "description": "Output resolution.",
-     "options": [
-      "1k",
-      "2k",
-      "4k"
-     ],
-     "default": "2k"
-    }
-   ],
-   "medias": [
-    {
-     "roles": [
-      "image_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "1:1",
-    "3:2",
-    "2:3",
-    "4:3",
-    "3:4",
-    "4:5",
-    "5:4",
-    "9:16",
-    "16:9",
-    "21:9"
-   ]
-  },
-  {
-   "id": "gpt_image_2",
-   "name": "GPT Image 2",
-   "provider_name": "OpenAI",
-   "output_type": "image",
-   "parameters": [
-    {
-     "name": "resolution",
-     "type": "string",
-     "description": "Output resolution",
-     "default": "1k",
-     "options": [
-      "1k",
-      "2k",
-      "4k"
-     ]
+   "display_name": "Seedance 2.0",
+   "job_type": "seedance_2_0",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIAudioInput": {
+      "description": "An AUDIO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'audio_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "audio_input",
+        "description": "Audio input type. A media_upload id ('media_input') resolves to 'audio_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIAudioInput",
+      "type": "object"
+     },
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     },
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "quality",
-     "type": "string",
-     "description": "Image quality",
-     "default": "low",
-     "options": [
-      "low",
-      "medium",
-      "high"
-     ]
-    }
-   ],
-   "medias": [
-    {
-     "roles": [
-      "image"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "1:1",
-    "4:3",
-    "3:4",
-    "16:9",
-    "21:9",
-    "9:16",
-    "3:2",
-    "2:3"
-   ]
-  },
-  {
-   "id": "seedream_v4_5",
-   "name": "Seedream 4.5",
-   "provider_name": "Bytedance",
-   "output_type": "image",
-   "parameters": [
-    {
-     "name": "quality",
-     "type": "string",
-     "description": "Output quality tier. 'basic' renders up to 4K; 'high' renders up to ~6K.",
-     "options": [
-      "basic",
-      "high"
-     ],
-     "default": "basic"
-    }
-   ],
-   "medias": [
-    {
-     "roles": [
-      "image_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "1:1",
-    "4:3",
-    "16:9",
-    "3:2",
-    "21:9",
-    "3:4",
-    "9:16",
-    "2:3"
-   ]
-  },
-  {
-   "id": "soul_2",
-   "name": "Higgsfield Soul 2.0",
-   "provider_name": "Higgsfield",
-   "output_type": "image",
-   "parameters": [
-    {
-     "name": "quality",
-     "type": "string",
-     "description": "Output quality tier shown as 1.5k or 2k",
-     "default": "2k",
-     "options": [
-      "1.5k",
-      "2k"
-     ]
-    }
-   ],
-   "medias": [
-    {
-     "roles": [
-      "image"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "1:1",
-    "16:9",
-    "9:16",
-    "4:3",
-    "3:4",
-    "3:2",
-    "2:3"
-   ]
-  },
-  {
-   "id": "flux_2",
-   "name": "FLUX.2",
-   "provider_name": "Black Forest Labs",
-   "output_type": "image",
-   "parameters": [
-    {
-     "name": "resolution",
-     "type": "string",
-     "description": "Output resolution.",
-     "options": [
-      "1k",
-      "2k"
-     ],
-     "default": "1k"
+    "properties": {
+     "aspect_ratio": {
+      "default": "16:9",
+      "description": "Aspect ratio of the output video.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "audio_references": {
+      "description": "Reference audio clips (2-15s each, max 3; require at least one image or video reference).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIAudioInput"
+      },
+      "title": "Audio References",
+      "type": "array"
+     },
+     "bitrate_mode": {
+      "default": "standard",
+      "description": "'standard' = normal output bitrate; 'high' = higher bitrate output.",
+      "oneOf": [
+       {
+        "const": "standard",
+        "title": "Standard"
+       },
+       {
+        "const": "high",
+        "title": "High"
+       }
+      ],
+      "title": "Bitrate Mode"
+     },
+     "duration": {
+      "default": 5,
+      "description": "Duration in seconds (4-15).",
+      "maximum": 15,
+      "minimum": 4,
+      "title": "Duration",
+      "type": "integer"
+     },
+     "end_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Last frame of the output video."
+     },
+     "generate_audio": {
+      "default": true,
+      "description": "Generate native audio for the video. Set false for a silent video. Independent of audio_references.",
+      "title": "Generate Audio",
+      "type": "boolean"
+     },
+     "genre": {
+      "default": "auto",
+      "description": "Cinematic genre hint.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "action",
+        "title": "Action"
+       },
+       {
+        "const": "horror",
+        "title": "Horror"
+       },
+       {
+        "const": "comedy",
+        "title": "Comedy"
+       },
+       {
+        "const": "noir",
+        "title": "Noir"
+       },
+       {
+        "const": "drama",
+        "title": "Drama"
+       },
+       {
+        "const": "epic",
+        "title": "Epic"
+       }
+      ],
+      "title": "Genre"
+     },
+     "image_references": {
+      "description": "Generic reference images (style, composition, subject). At most 9 across image_references + start_image + end_image.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "mode": {
+      "default": "std",
+      "description": "'std' = higher quality, supports 480p/720p/1080p/4k, requires a Plus plan or higher (Pro on legacy plans); 'fast' = cheaper/faster, supports 480p/720p only, available from the Basic/Starter plan.",
+      "oneOf": [
+       {
+        "const": "std",
+        "title": "Standard"
+       },
+       {
+        "const": "fast",
+        "title": "Fast"
+       }
+      ],
+      "title": "Mode"
+     },
+     "prompt": {
+      "description": "Text description of the video to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "720p",
+      "description": "Output resolution. 4k/1080p require mode='std'; mode='fast' supports 480p/720p only.",
+      "oneOf": [
+       {
+        "const": "480p",
+        "title": "480p"
+       },
+       {
+        "const": "720p",
+        "title": "720p"
+       },
+       {
+        "const": "1080p",
+        "title": "1080p"
+       },
+       {
+        "const": "4k",
+        "title": "4K"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "First frame of the output video."
+     },
+     "video_references": {
+      "description": "Reference video clips (2-15s each, max 3).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "title": "Video References",
+      "type": "array"
+     }
     },
-    {
-     "name": "variant",
-     "type": "string",
-     "description": "FLUX.2 model variant.",
-     "options": [
-      "pro",
-      "flex",
-      "max"
-     ],
-     "default": "pro"
-    }
-   ],
-   "medias": [
-    {
-     "roles": [
-      "image_references"
-     ]
-    }
-   ],
-   "aspect_ratios": [
-    "1:1",
-    "4:3",
-    "3:4",
-    "16:9",
-    "9:16"
-   ]
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Bytedance",
+   "type": "video"
   },
   {
-   "id": "image_background_remover",
-   "name": "Image Background Remover",
-   "provider_name": "",
-   "output_type": "image",
-   "parameters": [],
-   "medias": [
-    {
-     "roles": [
-      "image_references"
-     ]
-    }
-   ],
-   "aspect_ratios": []
-  },
-  {
-   "id": "bytedance_image_upscale",
-   "name": "Bytedance Image Upscale",
-   "provider_name": "",
-   "output_type": "image",
-   "parameters": [
-    {
-     "name": "resolution",
-     "type": "string",
-     "description": "Target upscale resolution.",
-     "options": [
-      "2k",
-      "4k"
-     ],
-     "default": "4k"
+   "display_name": "Seedance 2.5",
+   "job_type": "seedance_2_5",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIAudioInput": {
+      "description": "An AUDIO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'audio_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "audio_input",
+        "description": "Audio input type. A media_upload id ('media_input') resolves to 'audio_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIAudioInput",
+      "type": "object"
+     },
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     },
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
     },
-    {
-     "name": "remove_bg",
-     "type": "bool",
-     "description": "Remove the background from the upscaled image.",
-     "default": false
-    }
-   ],
-   "medias": [
-    {
-     "roles": [
-      "image_references"
-     ]
-    }
-   ],
-   "aspect_ratios": []
+    "properties": {
+     "aspect_ratio": {
+      "default": "16:9",
+      "description": "Aspect ratio of the output video.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "audio_references": {
+      "description": "Reference audio clips (max 10).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIAudioInput"
+      },
+      "maxItems": 10,
+      "title": "Audio References",
+      "type": "array"
+     },
+     "bitrate_mode": {
+      "default": "standard",
+      "description": "'standard' = normal output bitrate; 'high' = higher bitrate output.",
+      "oneOf": [
+       {
+        "const": "standard",
+        "title": "Standard"
+       },
+       {
+        "const": "high",
+        "title": "High"
+       }
+      ],
+      "title": "Bitrate Mode"
+     },
+     "draft": {
+      "default": false,
+      "description": "Generate a 480p draft that can be finalized within seven days.",
+      "title": "Draft",
+      "type": "boolean"
+     },
+     "draft_job_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Completed draft job to finalize at 1080p.",
+      "title": "Draft Job Id"
+     },
+     "duration": {
+      "default": 5,
+      "description": "Duration in seconds (4-30).",
+      "maximum": 30,
+      "minimum": 4,
+      "title": "Duration",
+      "type": "integer"
+     },
+     "end_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Last frame of the output video (mode 'omni_reference' only)."
+     },
+     "extension_mode": {
+      "anyOf": [
+       {
+        "oneOf": [
+         {
+          "const": "backward",
+          "title": "Backward"
+         },
+         {
+          "const": "forward",
+          "title": "Forward"
+         }
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Extension direction; required for mode 'video_extension' and not allowed otherwise.",
+      "title": "Extension Mode"
+     },
+     "generate_audio": {
+      "default": true,
+      "description": "Generate audio for the output video.",
+      "title": "Generate Audio",
+      "type": "boolean"
+     },
+     "image_references": {
+      "description": "Reference images for subject, style, or composition (max 30 across image_references + start_image + end_image).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "maxItems": 30,
+      "title": "Image References",
+      "type": "array"
+     },
+     "mode": {
+      "default": "t2v",
+      "description": "Generation mode: 't2v' for prompt-only generation, 'omni_reference' for image, video, or audio references, 'video_edit' to edit one reference video (billed by that video's duration; 'duration' and 'aspect_ratio' are ignored), or 'video_extension' to extend a reference video ('aspect_ratio' is ignored — the output follows the extended video).",
+      "oneOf": [
+       {
+        "const": "t2v",
+        "title": "Text to video"
+       },
+       {
+        "const": "omni_reference",
+        "title": "Omni reference"
+       },
+       {
+        "const": "video_edit",
+        "title": "Video edit"
+       },
+       {
+        "const": "video_extension",
+        "title": "Video extension"
+       }
+      ],
+      "title": "Mode"
+     },
+     "prompt": {
+      "description": "Text description of the video to generate.",
+      "maxLength": 60000,
+      "minLength": 1,
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "720p",
+      "description": "Output resolution: 480p, 720p, or 1080p.",
+      "oneOf": [
+       {
+        "const": "480p",
+        "title": "480p"
+       },
+       {
+        "const": "720p",
+        "title": "720p"
+       },
+       {
+        "const": "1080p",
+        "title": "1080p"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "First frame of the output video (mode 'omni_reference' only)."
+     },
+     "video_references": {
+      "description": "Reference video clips (max 10).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "maxItems": 10,
+      "title": "Video References",
+      "type": "array"
+     }
+    },
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Bytedance",
+   "type": "video"
+  },
+  {
+   "display_name": "Seedream 4.5",
+   "job_type": "seedream_v4_5",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
+    },
+    "properties": {
+     "aspect_ratio": {
+      "default": "1:1",
+      "description": "Aspect ratio of the output image.",
+      "oneOf": [
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "3:2",
+        "title": "3:2"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "2:3",
+        "title": "2:3"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "image_references": {
+      "description": "Reference images for editing, transformation, or control (at most 14).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "prompt": {
+      "description": "Text description of the image to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "quality": {
+      "default": "basic",
+      "description": "Output quality tier. 'basic' renders up to 4K; 'high' renders up to ~6K.",
+      "oneOf": [
+       {
+        "const": "basic",
+        "title": "Basic"
+       },
+       {
+        "const": "high",
+        "title": "High"
+       }
+      ],
+      "title": "Quality"
+     }
+    },
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Bytedance",
+   "type": "image"
+  },
+  {
+   "display_name": "Higgsfield Soul 2.0",
+   "job_type": "text2image_soul_v2",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
+    },
+    "properties": {
+     "aspect_ratio": {
+      "default": "1:1",
+      "description": "Aspect ratio of the output image.",
+      "oneOf": [
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "3:2",
+        "title": "3:2"
+       },
+       {
+        "const": "2:3",
+        "title": "2:3"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "custom_reference_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Soul-ID for personalized character generation.",
+      "title": "Custom Reference Id"
+     },
+     "image_references": {
+      "description": "Reference image to guide the generation (at most one).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "title": "Image References",
+      "type": "array"
+     },
+     "prompt": {
+      "description": "Text description of the image to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "quality": {
+      "default": "2k",
+      "description": "Output quality tier (1.5K or 2K).",
+      "oneOf": [
+       {
+        "const": "1.5k",
+        "title": "1.5K"
+       },
+       {
+        "const": "2k",
+        "title": "2K"
+       }
+      ],
+      "title": "Quality"
+     },
+     "seed": {
+      "anyOf": [
+       {
+        "maximum": 1000000,
+        "minimum": 1,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Seed for reproducible generation. Same seed + same params returns the same image. Omit for a random seed.",
+      "title": "Seed"
+     },
+     "style_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Curated Soul 2.0 style UUID from GET /developer/v2alpha/presets. Omit for the general style. Cannot be combined with image_references.",
+      "title": "Style Id"
+     }
+    },
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Higgsfield",
+   "type": "image"
+  },
+  {
+   "display_name": "Topaz",
+   "job_type": "topaz_video",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     },
+     "TopazVideoCreativityModel": {
+      "oneOf": [
+       {
+        "const": "low",
+        "title": "Low"
+       },
+       {
+        "const": "high",
+        "title": "High"
+       }
+      ],
+      "title": "TopazVideoCreativityModel",
+      "type": "string"
+     },
+     "TopazVideoEnhancementModel": {
+      "oneOf": [
+       {
+        "const": "slp-2.5",
+        "title": "Slp 2.5"
+       },
+       {
+        "const": "prob-4",
+        "title": "Prob 4"
+       },
+       {
+        "const": "ahq-12",
+        "title": "Ahq 12"
+       },
+       {
+        "const": "iris-3",
+        "title": "Iris 3"
+       },
+       {
+        "const": "Iris-3",
+        "title": "Iris-3"
+       },
+       {
+        "const": "rhea-1",
+        "title": "Rhea 1"
+       },
+       {
+        "const": "ghq-5",
+        "title": "Ghq 5"
+       },
+       {
+        "const": "thd-3",
+        "title": "Thd 3"
+       },
+       {
+        "const": "slf-1",
+        "title": "Slf 1"
+       },
+       {
+        "const": "slc-1",
+        "title": "Slc 1"
+       }
+      ],
+      "title": "TopazVideoEnhancementModel",
+      "type": "string"
+     },
+     "TopazVideoFrameInterpolationModel": {
+      "oneOf": [
+       {
+        "const": "apo-8",
+        "title": "Apo 8"
+       },
+       {
+        "const": "chr-2",
+        "title": "Chr 2"
+       }
+      ],
+      "title": "TopazVideoFrameInterpolationModel",
+      "type": "string"
+     },
+     "_Enhancement": {
+      "properties": {
+       "astra_params": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/_TopazAstraEnhancementParams"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "model": {
+        "$ref": "#/$defs/TopazVideoEnhancementModel",
+        "default": "prob-4"
+       },
+       "params": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/_EnhancementParams"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "title": "_Enhancement",
+      "type": "object"
+     },
+     "_EnhancementParams": {
+      "properties": {
+       "blur": {
+        "default": 0,
+        "maximum": 1,
+        "minimum": -1,
+        "multipleOf": 0.1,
+        "title": "Blur",
+        "type": "number"
+       },
+       "compression": {
+        "default": 0,
+        "maximum": 1,
+        "minimum": -1,
+        "multipleOf": 0.1,
+        "title": "Compression",
+        "type": "number"
+       },
+       "details": {
+        "default": 0,
+        "maximum": 1,
+        "minimum": -1,
+        "multipleOf": 0.1,
+        "title": "Details",
+        "type": "number"
+       },
+       "grain": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/_Grain"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null
+       },
+       "halo": {
+        "default": 0,
+        "maximum": 1,
+        "minimum": -1,
+        "multipleOf": 0.1,
+        "title": "Halo",
+        "type": "number"
+       },
+       "noise": {
+        "default": 0,
+        "maximum": 1,
+        "minimum": -1,
+        "multipleOf": 0.1,
+        "title": "Noise",
+        "type": "number"
+       },
+       "preblur": {
+        "default": 0,
+        "maximum": 1,
+        "minimum": -1,
+        "multipleOf": 0.1,
+        "title": "Preblur",
+        "type": "number"
+       }
+      },
+      "title": "_EnhancementParams",
+      "type": "object"
+     },
+     "_FrameInterpolation": {
+      "properties": {
+       "fps": {
+        "maximum": 240,
+        "minimum": 15,
+        "title": "Fps",
+        "type": "integer"
+       },
+       "model": {
+        "$ref": "#/$defs/TopazVideoFrameInterpolationModel"
+       },
+       "slowmo": {
+        "maximum": 16,
+        "minimum": 1,
+        "title": "Slowmo",
+        "type": "integer"
+       }
+      },
+      "required": [
+       "model",
+       "fps",
+       "slowmo"
+      ],
+      "title": "_FrameInterpolation",
+      "type": "object"
+     },
+     "_Grain": {
+      "properties": {
+       "size": {
+        "default": 0,
+        "maximum": 0.1,
+        "minimum": 0,
+        "multipleOf": 0.01,
+        "title": "Size",
+        "type": "number"
+       },
+       "strength": {
+        "default": 0,
+        "maximum": 0.1,
+        "minimum": 0,
+        "multipleOf": 0.01,
+        "title": "Strength",
+        "type": "number"
+       }
+      },
+      "title": "_Grain",
+      "type": "object"
+     },
+     "_TopazAstraEnhancementParams": {
+      "properties": {
+       "creativity": {
+        "$ref": "#/$defs/TopazVideoCreativityModel"
+       },
+       "isOptimizedMode": {
+        "anyOf": [
+         {
+          "type": "boolean"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "default": null,
+        "title": "Isoptimizedmode"
+       }
+      },
+      "required": [
+       "creativity"
+      ],
+      "title": "_TopazAstraEnhancementParams",
+      "type": "object"
+     }
+    },
+    "properties": {
+     "aspect_ratio": {
+      "default": "auto",
+      "description": "Output aspect ratio; 'auto' matches the source video.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto (match source)"
+       },
+       {
+        "const": "21:9",
+        "title": "21:9"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "enhancement": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/_Enhancement"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Enhancement settings (omit to use Topaz defaults)."
+     },
+     "frame_interpolation": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/_FrameInterpolation"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Frame interpolation (omit to disable)."
+     },
+     "resolution": {
+      "default": "1080p",
+      "description": "Target output resolution.",
+      "oneOf": [
+       {
+        "const": "1080p",
+        "title": "1080p"
+       },
+       {
+        "const": "2160p",
+        "title": "2160p (4K)"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "video_references": {
+      "description": "Source video to upscale and enhance (exactly one).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "maxItems": 1,
+      "minItems": 1,
+      "title": "Video References",
+      "type": "array"
+     }
+    },
+    "required": [
+     "video_references"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "",
+   "type": "video"
+  },
+  {
+   "display_name": "Google Veo 3.1",
+   "job_type": "veo3_1",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     }
+    },
+    "properties": {
+     "aspect_ratio": {
+      "default": "16:9",
+      "description": "Aspect ratio of the output video.",
+      "oneOf": [
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "duration": {
+      "default": 8,
+      "description": "Duration of the output video in seconds.",
+      "oneOf": [
+       {
+        "const": 4,
+        "title": "4 seconds"
+       },
+       {
+        "const": 6,
+        "title": "6 seconds"
+       },
+       {
+        "const": 8,
+        "title": "8 seconds"
+       }
+      ],
+      "title": "Duration"
+     },
+     "prompt": {
+      "description": "Text description of the video to generate.",
+      "title": "Prompt",
+      "type": "string"
+     },
+     "quality": {
+      "default": "basic",
+      "description": "Output quality tier.",
+      "oneOf": [
+       {
+        "const": "basic",
+        "title": "Basic"
+       },
+       {
+        "const": "high",
+        "title": "High"
+       },
+       {
+        "const": "ultra",
+        "title": "Ultra"
+       }
+      ],
+      "title": "Quality"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Optional source image used as the first frame of the video (image-to-video). Omit for text-to-video."
+     },
+     "variant": {
+      "default": "veo-3-1-fast",
+      "description": "Veo 3.1 variant: 'veo-3-1-preview' = best quality, 'veo-3-1-fast' = faster generation.",
+      "oneOf": [
+       {
+        "const": "veo-3-1-preview",
+        "title": "Preview (best quality)"
+       },
+       {
+        "const": "veo-3-1-fast",
+        "title": "Fast (faster generation)"
+       }
+      ],
+      "title": "Variant"
+     }
+    },
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Google",
+   "type": "video"
+  },
+  {
+   "display_name": "Video Background Remover",
+   "job_type": "video_background_remover",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
+    },
+    "properties": {
+     "video_references": {
+      "description": "Source video to remove the background from. Provide exactly one video.",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "title": "Video References",
+      "type": "array"
+     }
+    },
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "",
+   "type": "video"
+  },
+  {
+   "display_name": "Wan 3.0",
+   "job_type": "wan3_0",
+   "json_schema": {
+    "$defs": {
+     "DeveloperAPIAudioInput": {
+      "description": "An AUDIO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'audio_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "audio_input",
+        "description": "Audio input type. A media_upload id ('media_input') resolves to 'audio_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIAudioInput",
+      "type": "object"
+     },
+     "DeveloperAPIMediaInput": {
+      "description": "An IMAGE media reference. `type` is optional and defaults to 'media_input'.\n\nThe default is injected in a `before` validator (not just the field default) so it\nsurvives the `exclude_unset` dump in `validate_developer_api_params` — a caller can\npass just `{\"id\": ...}`. Pass an explicit `type` (e.g. a prior generation's job\ntype) to chain from an existing generation instead of an upload.",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "media_input",
+        "description": "Image input type — 'media_input' for an uploaded image; or a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIMediaInput",
+      "type": "object"
+     },
+     "DeveloperAPIVideoInput": {
+      "description": "A VIDEO media reference. Accepts a media_upload id (type 'media_input', as the SDK\nemits) or an explicit prior-generation job type; the generic upload type and an\nomitted type both resolve to 'video_input' (injected in a `before` validator so it\nsurvives `exclude_unset`).",
+      "properties": {
+       "id": {
+        "description": "Media id: a UUID from media_upload or a prior generation.",
+        "format": "uuid",
+        "title": "Id",
+        "type": "string"
+       },
+       "type": {
+        "default": "video_input",
+        "description": "Video input type. A media_upload id ('media_input') resolves to 'video_input'; pass a prior generation's job type to chain from it.",
+        "title": "Type",
+        "type": "string"
+       }
+      },
+      "required": [
+       "id"
+      ],
+      "title": "DeveloperAPIVideoInput",
+      "type": "object"
+     }
+    },
+    "properties": {
+     "aspect_ratio": {
+      "default": "auto",
+      "description": "Aspect ratio of the output video; 'auto' follows the reference media.",
+      "oneOf": [
+       {
+        "const": "auto",
+        "title": "Auto (follows the reference media)"
+       },
+       {
+        "const": "16:9",
+        "title": "16:9"
+       },
+       {
+        "const": "9:16",
+        "title": "9:16"
+       },
+       {
+        "const": "1:1",
+        "title": "1:1"
+       },
+       {
+        "const": "4:3",
+        "title": "4:3"
+       },
+       {
+        "const": "3:4",
+        "title": "3:4"
+       }
+      ],
+      "title": "Aspect Ratio"
+     },
+     "audio_references": {
+      "description": "Reference audio clips (max 5).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIAudioInput"
+      },
+      "maxItems": 5,
+      "title": "Audio References",
+      "type": "array"
+     },
+     "duration": {
+      "default": 5,
+      "description": "Duration in seconds (2-30), or -1 to let the model choose the length from the prompt and media. Smart duration (-1) is only available for unlimited generations.",
+      "maximum": 30,
+      "minimum": -1,
+      "title": "Duration",
+      "type": "integer"
+     },
+     "enable_thinking": {
+      "default": false,
+      "description": "Let the model reason about the prompt before generating (slower, better prompt adherence).",
+      "title": "Enable Thinking",
+      "type": "boolean"
+     },
+     "end_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "Last frame of the output video; requires start_image."
+     },
+     "generate_audio": {
+      "default": true,
+      "description": "Generate a native audio track for the output video.",
+      "title": "Generate Audio",
+      "type": "boolean"
+     },
+     "image_references": {
+      "description": "Reference images for subject, style, or composition (max 10).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIMediaInput"
+      },
+      "maxItems": 10,
+      "title": "Image References",
+      "type": "array"
+     },
+     "prompt": {
+      "description": "Text description of the video to generate.",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Prompt",
+      "type": "string"
+     },
+     "resolution": {
+      "default": "720p",
+      "description": "Output resolution: 480p, 720p, or 1080p.",
+      "oneOf": [
+       {
+        "const": "480p",
+        "title": "480p"
+       },
+       {
+        "const": "720p",
+        "title": "720p"
+       },
+       {
+        "const": "1080p",
+        "title": "1080p"
+       }
+      ],
+      "title": "Resolution"
+     },
+     "start_image": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/DeveloperAPIMediaInput"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "First frame of the output video. Cannot be combined with reference media."
+     },
+     "video_references": {
+      "description": "Reference video clips (max 5).",
+      "items": {
+       "$ref": "#/$defs/DeveloperAPIVideoInput"
+      },
+      "maxItems": 5,
+      "title": "Video References",
+      "type": "array"
+     }
+    },
+    "required": [
+     "prompt"
+    ],
+    "title": "DeveloperAPIParams",
+    "type": "object"
+   },
+   "provider": "Wan",
+   "type": "video"
   }
- ]
+ ],
+ "source": "Live Higgsfield account API, GET /job_types/{job_type} (json_schema as returned), account plan 'plus'. Same schemas the panel reads at run time."
 }

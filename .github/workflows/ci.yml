@@ -156,7 +156,7 @@ jobs:
           .build/debug/hfcp workspaces
           .build/debug/hfcp catalog --type video | head -50
           .build/debug/hfcp catalog --chain
-          for jt in reframe draw_to_video video_background_remover image_background_remover topaz_video bytedance_video_upscale bytedance_image_upscale seedance_2_0 kling_video_edit nano_banana_2; do
+          for jt in reframe draw_to_video video_background_remover image_background_remover topaz_video bytedance_video_upscale bytedance_image_upscale seedance_2_0 kling_video_edit flux_3_video_edit seedance_2_5 nano_banana_flash nano_banana_pro; do
             .build/debug/hfcp schema "$jt" || true
           done
       - name: Cost estimates for each tool (no credits spent)
@@ -167,5 +167,5 @@ jobs:
           .build/debug/hfcp cost editVideo --prompt "make it snow" --duration 6
           .build/debug/hfcp cost reframe --duration 10 --set aspect_ratio=9:16 --set resolution=1080p
           .build/debug/hfcp cost removeBackground --duration 5
-          .build/debug/hfcp cost upscale --duration 5 --width 1280 --height 720 --set resolution=2160p
+          .build/debug/hfcp cost upscale --model bytedance_video_upscale --duration 5 --width 1280 --height 720
           .build/debug/hfcp cost drawToEdit --prompt "make the jacket red" --duration 5

@@ -64,15 +64,14 @@ public actor JobRunner {
         await save(record)
 
         do {
-            var entries: [JSONValue] = []
+            var references: [MediaReference] = []
             for item in request.media {
-                let reference = try await reference(for: item)
-                entries.append(reference.entry(role: item.role))
+                references.append(try await reference(for: item))
             }
             record.phase = .submitting
             await save(record)
             let id = try await client.submit(jobType: request.jobType, output: request.output,
-                                             params: request.submissionParams(mediaEntries: entries))
+                                             params: request.submissionParams(references: references))
             record.remoteID = id
             record.phase = .queued
             await save(record)

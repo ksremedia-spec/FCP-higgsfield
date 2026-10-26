@@ -53,20 +53,47 @@ public struct PreparedRequest: Equatable, Sendable {
     public var jobType: String
     public var modelName: String
     public var output: MediaKind
-    /// `params` without `medias`; media entries are appended after upload.
+    /// `params` without media; media is added after upload.
     public var params: [String: JSONValue]
     public var media: [PendingMedia]
+    /// The job type's top-level media properties. Empty means the older
+    /// `params.medias` array layout.
+    public var mediaFields: [MediaField] = []
+    /// Length of the selected source video, in seconds.
+    public var sourceDuration: Double? = nil
 
     /// Params for `POST /jobs/{job_type}/cost`, which doesn't need media ids.
+    ///
+    /// Several job types price by the source length but take no `duration`
+    /// parameter (their `cost_schema` has one): Kling Omni Edit requires it,
+    /// FLUX 3 Video Edit and ByteDance Video Upscale otherwise quote a default
+    /// length. Checked live 2026-10-26; extra keys are ignored by the endpoint.
     public var costParams: [String: JSONValue] {
         var p = params
-        p["medias"] = .array([])
+        if mediaFields.isEmpty { p["medias"] = .array([]) }
+        if p["duration"] == nil, let d = sourceDuration, d > 0 { p["duration"] = .number((d * 10).rounded() / 10) }
         return p
     }
 
-    public func submissionParams(mediaEntries: [JSONValue]) -> [String: JSONValue] {
+    /// Params for submission once every media input has a server reference
+    /// (`references[i]` belongs to `media[i]`).
+    public func submissionParams(references: [MediaReference]) -> [String: JSONValue] {
         var p = params
-        if !mediaEntries.isEmpty || !media.isEmpty { p["medias"] = .array(mediaEntries) }
+        let attached = zip(media, references)
+        if mediaFields.isEmpty {
+            if !media.isEmpty { p["medias"] = .array(attached.map { $1.entry(role: $0.role) }) }
+            return p
+        }
+        for (item, reference) in attached {
+            let isArray = mediaFields.first { $0.name == item.role }?.isArray ?? item.role.hasSuffix("references")
+            if isArray {
+                var list = p[item.role]?.arrayValue ?? []
+                list.append(reference.value)
+                p[item.role] = .array(list)
+            } else {
+                p[item.role] = reference.value
+            }
+        }
         return p
     }
 }
@@ -153,11 +180,19 @@ public enum RequestBuilder {
         // Media inputs → roles.
         var media: [PendingMedia] = []
         var used: Set<String> = []
+        // Roles taken by a single-purpose input (the source, the sketch, the
+        // mask). Reusable inputs such as reference images may share a role
+        // with each other, but never with one of these.
+        var exclusive: Set<String> = []
         func attach(_ slot: MediaSlot, _ payload: PendingMedia.Payload, reusable: Bool = false) throws {
-            guard let role = slot.role(available: schema.mediaRoles, excluding: reusable ? [] : used) else {
+            guard let role = slot.role(available: schema.mediaRoles, excluding: reusable ? exclusive : used) else {
+                throw HiggsfieldError.invalidInput("\(model.name) doesn’t accept this kind of input.")
+            }
+            if reusable, exclusive.contains(role) {
                 throw HiggsfieldError.invalidInput("\(model.name) doesn’t accept this kind of input.")
             }
             used.insert(role)
+            if !reusable { exclusive.insert(role) }
             media.append(PendingMedia(slot: slot, role: role, payload: payload))
         }
 
@@ -189,7 +224,9 @@ public enum RequestBuilder {
         default: output = model.output
         }
 
-        return PreparedRequest(operation: op, jobType: model.jobType, modelName: model.name, output: output, params: params, media: media)
+        return PreparedRequest(operation: op, jobType: model.jobType, modelName: model.name, output: output, params: params, media: media,
+                               mediaFields: schema.mediaFields,
+                               sourceDuration: draft.source?.kind == .video ? draft.source?.selectedDuration : nil)
     }
 
     /// Maps a source length to the model's duration parameter.

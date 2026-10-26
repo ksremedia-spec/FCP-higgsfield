@@ -50,8 +50,14 @@ public struct MediaReference: Codable, Hashable, Sendable {
         }
     }
 
-    /// The `medias[]` entry for the given role.
+    /// The `medias[]` entry for the given role (older schemas with a `medias` array).
     public func entry(role: String) -> JSONValue {
-        ["data": ["id": .string(id), "type": .string(source.rawValue)], "role": .string(role)]
+        ["data": value, "role": .string(role)]
+    }
+
+    /// The value placed in a top-level media property, as the official
+    /// CLI 1.2.2 sends it: `{"id": "<uuid>", "type": "video_input"}`.
+    public var value: JSONValue {
+        ["id": .string(id), "type": .string(source.rawValue)]
     }
 }

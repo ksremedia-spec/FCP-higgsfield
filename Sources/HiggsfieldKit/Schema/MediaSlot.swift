@@ -21,7 +21,9 @@ public enum MediaSlot: String, CaseIterable, Sendable, Codable {
         case .startImage: return ["start_image", "image"]
         case .endImage: return ["end_image"]
         case .referenceImage: return ["image_references", "image", "ref_image"]
-        case .sketch: return ["sketch", "ref_image", "image_references"]
+        // draw_to_video (live schema, 2026-10-26): `image_references` is
+        // "the sketch image to animate"; `ref_image` is an optional style reference.
+        case .sketch: return ["sketch", "image_references"]
         case .mask: return ["mask"]
         }
     }

@@ -19,11 +19,14 @@ final class SchemaTests: XCTestCase {
         XCTAssertTrue(schema.acceptsPrompt)
         XCTAssertEqual(schema.parameters.first?.name, "aspect_ratio")
         let duration = try XCTUnwrap(schema.parameter(named: "duration"))
-        XCTAssertEqual(duration.kind, .number(min: 4, max: 15, integer: false))
+        XCTAssertEqual(duration.kind, .number(min: 4, max: 15, integer: true), "live schema: integer seconds")
         XCTAssertEqual(duration.defaultValue, 5)
         XCTAssertEqual(schema.parameter(named: "resolution")?.kind, .choice(["480p", "720p", "1080p", "4k"]))
         XCTAssertEqual(schema.parameter(named: "generate_audio")?.kind, .toggle)
-        XCTAssertEqual(schema.mediaRoles, ["start_image", "end_image", "image_references", "video_references", "audio_references"])
+        XCTAssertEqual(schema.mediaRoles, ["start_image", "end_image", "video_references", "image_references", "audio_references"])
+        XCTAssertEqual(schema.mediaField(named: "start_image"), MediaField(name: "start_image", isArray: false))
+        XCTAssertEqual(schema.mediaField(named: "video_references"), MediaField(name: "video_references", isArray: true))
+        XCTAssertNil(schema.parameter(named: "start_image"), "media inputs are not settings")
         XCTAssertNil(schema.parameter(named: "prompt"))
     }
 
@@ -85,7 +88,7 @@ final class SchemaTests: XCTestCase {
         XCTAssertEqual(MediaSlot.sourceVideo.role(available: ["video", "start_image", "image"]), "video")
         XCTAssertEqual(MediaSlot.sourceVideo.role(available: ["video_references"]), "video_references")
         XCTAssertEqual(MediaSlot.sketch.role(available: ["video", "sketch", "image_references"]), "sketch")
-        XCTAssertEqual(MediaSlot.sketch.role(available: ["video", "image_references", "ref_image"]), "ref_image")
+        XCTAssertEqual(MediaSlot.sketch.role(available: ["video", "image_references", "ref_image"]), "image_references")
         XCTAssertEqual(MediaSlot.mask.role(available: ["image_references", "mask"]), "mask")
         XCTAssertNil(MediaSlot.mask.role(available: ["image_references"]))
         XCTAssertEqual(MediaSlot.sourceVideo.role(available: []), "video", "falls back to the first candidate without a schema")
@@ -120,10 +123,10 @@ final class RequestBuilderTests: XCTestCase {
         XCTAssertEqual(req.jobType, "reframe")
         XCTAssertEqual(req.output, .video)
         XCTAssertEqual(req.params, ["aspect_ratio": "9:16", "resolution": "720p", "duration": 7.1])
-        XCTAssertEqual(req.media.map(\.role), ["video"])
+        XCTAssertEqual(req.media.map(\.role), ["video_references"])
         let ref = MediaReference.uploaded(id: "55555555-5555-4555-8555-555555555555", kind: .video)
-        XCTAssertEqual(try JSONValue.object(req.submissionParams(mediaEntries: [ref.entry(role: "video")])).encodedData(),
-                       try json(#"{"aspect_ratio":"9:16","duration":7.1,"medias":[{"data":{"id":"55555555-5555-4555-8555-555555555555","type":"video_input"},"role":"video"}],"resolution":"720p"}"#).encodedData())
+        XCTAssertEqual(try JSONValue.object(req.submissionParams(references: [ref])).encodedData(),
+                       try json(#"{"aspect_ratio":"9:16","duration":7.1,"resolution":"720p","video_references":[{"id":"55555555-5555-4555-8555-555555555555","type":"video_input"}]}"#).encodedData())
     }
 
     func testReframeRequiresAspectRatioAndLimitsLength() {
@@ -139,7 +142,7 @@ final class RequestBuilderTests: XCTestCase {
         // Seedance 2.0 accepts 4–15 s, matching the Premiere plugin's reported limits.
         let ok = try RequestBuilder.prepare(OperationDraft(operation: .editVideo, prompt: "make it snow", source: video(8.6)), catalog: .snapshot)
         XCTAssertEqual(ok.jobType, "seedance_2_0")
-        XCTAssertEqual(ok.params["duration"], 8.6)
+        XCTAssertEqual(ok.params["duration"], 9, "Seedance 2.0 takes whole seconds (live schema)")
         XCTAssertEqual(ok.params["prompt"], "make it snow")
         XCTAssertEqual(ok.media.map(\.role), ["video_references"])
 
@@ -167,16 +170,16 @@ final class RequestBuilderTests: XCTestCase {
         let req = try RequestBuilder.prepare(OperationDraft(operation: .drawToEdit, prompt: "make the jacket red", source: video(5), sketchFile: sketch), catalog: .snapshot)
         XCTAssertEqual(req.jobType, "draw_to_video")
         XCTAssertEqual(req.params["duration"], 5)
-        // Snapshot roles are video/image_references/ref_image, so the sketch maps to ref_image;
-        // a live schema exposing `sketch` (as the CLI example implies) maps to `sketch`.
-        XCTAssertEqual(req.media.map(\.role), ["video", "ref_image"])
+        // Live schema (2026-10-26): `image_references` is "the sketch image to
+        // animate"; `ref_image` is only an optional style reference.
+        XCTAssertEqual(req.media.map(\.role), ["video", "image_references"])
         XCTAssertEqual(req.media.last?.payload, .file(sketch, .image))
     }
 
     func testDrawToEditImageUsesMaskInpainting() throws {
         let mask = URL(fileURLWithPath: "/tmp/mask.png")
         let req = try RequestBuilder.prepare(OperationDraft(operation: .drawToEdit, prompt: "replace with a lamp", source: image(), maskFile: mask), catalog: .snapshot)
-        XCTAssertEqual(req.jobType, "nano_banana_2")
+        XCTAssertEqual(req.jobType, "nano_banana_flash")
         XCTAssertEqual(req.output, .image)
         XCTAssertEqual(req.params["is_inpaint"], true)
         XCTAssertEqual(req.media.map(\.role), ["image_references", "mask"])
@@ -211,7 +214,7 @@ final class RequestBuilderTests: XCTestCase {
         XCTAssertEqual(req.jobType, "seedance_2_0")
         XCTAssertEqual(req.params, ["prompt": "slow push in", "duration": 8, "aspect_ratio": "16:9"])
         XCTAssertEqual(req.media.map(\.role), ["start_image"])
-        XCTAssertEqual(req.costParams["medias"], [])
+        XCTAssertNil(req.costParams["medias"], "live schemas take media as top-level properties")
         XCTAssertThrowsError(try RequestBuilder.prepare(OperationDraft(operation: .generateVideo, prompt: "x", source: video(3)), catalog: .snapshot))
     }
 
@@ -266,7 +269,7 @@ final class JobRunnerTests: XCTestCase {
         XCTAssertEqual(done.estimatedCredits, 70)
 
         let submit = try XCTUnwrap(t.requests("POST", "/generations").first)
-        XCTAssertEqual(submit.bodyJSON, json(#"{"params":{"aspect_ratio":"9:16","duration":6,"medias":[{"data":{"id":"m-1","type":"video_input"},"role":"video"}]}}"#))
+        XCTAssertEqual(submit.bodyJSON, json(#"{"params":{"aspect_ratio":"9:16","duration":6,"video_references":[{"id":"m-1","type":"video_input"}]}}"#))
     }
 
     func testChainedResultIsReferencedWithoutReupload() async throws {
@@ -284,7 +287,7 @@ final class JobRunnerTests: XCTestCase {
         XCTAssertEqual(failed.message, "Provider timeout")
         XCTAssertTrue(t.requests("POST", "/media").isEmpty)
         XCTAssertEqual(t.requests("POST", "/generations").first?.bodyJSON,
-                       json(#"{"params":{"medias":[{"data":{"id":"job-1","type":"video_job"},"role":"video_references"}]}}"#))
+                       json(#"{"params":{"video_references":[{"id":"job-1","type":"video_job"}]}}"#))
     }
 
     func testSubmissionFailureIsRecorded() async throws {

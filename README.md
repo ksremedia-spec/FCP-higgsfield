@@ -22,7 +22,7 @@ Details on each feature and how it maps to Premiere are in **[docs/PARITY.md](do
 
 The code is complete for all seven tools. It is built and tested in CI on macOS (app and Final Cut Pro extension) and Linux (core library). The FCPXML validates against Apple's DTD.
 
-On 2026-10-26 the free parts ran against the live Higgsfield API through this app's own client: sign-in through the official CLI session, balance, catalog, every tool's schema and every tool's cost estimate. That run found that Higgsfield now takes media as top-level properties, a wrong Draw to Edit sketch slot, stale model ids and incomplete estimates; all are fixed, and every tool's request now matches what the official CLI 1.2.2 sends today.
+On 2026-10-26 the free parts ran against the live Higgsfield API through this app's own client: sign-in through the official CLI session, balance, catalog, every tool's schema and every tool's cost estimate. That run found that uploads would have been refused, that Higgsfield now takes media as top-level properties, a wrong Draw to Edit sketch slot, stale model ids and incomplete estimates. All are fixed: uploads now succeed through the app's client, and every tool's request matches what the official CLI 1.2.2 sends today.
 
 **Not yet done:** a paid generation per tool (needs your go-ahead), and anything inside Final Cut Pro (needs the Mac). The official panel also uses a different layout (a home screen with recent generations and an app grid); that redesign is waiting on a decision. [docs/VALIDATION.md](docs/VALIDATION.md) lists exactly what is verified and how to close the remaining gaps.
 

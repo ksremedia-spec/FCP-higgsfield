@@ -85,7 +85,7 @@ No generation has run yet (L4) and nothing has run inside Final Cut Pro (L5). On
 
 **Evidence:**
 - Duration limits and roles: `RequestBuilderTests.testEditVideoEnforcesModelDurationLimits`, `testEditVideoWithSeedance25ForcesEditMode`.
-- The upload handshake is identical to the CLI capture (`testMediaUploadHandshakeMatchesCLICapture`).
+- The upload handshake matches the official CLI's, including the signed Content-Type (`testMediaUploadHandshakeMatchesCLICapture`), and **uploads succeed live through the app's client** (`hfcp upload`, 2026-10-26).
 - Browser range → In/Out: `FCPXMLParsingTests.testBrowserDragWithSelectedRange`, `PanelTests.testBrowserClipDropBecomesTrimmedSource`.
 
 **Difference:** the result can't replace the clip in place. FCP extensions have no timeline-editing API. The result is dropped over the original (connected clip or replace edit), or comes back via #11.

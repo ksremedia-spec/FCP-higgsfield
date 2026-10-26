@@ -159,11 +159,16 @@ public struct CostEstimate: Codable, Equatable, Sendable {
 struct MediaUploadTicket: Decodable {
     var id: String
     var uploadURL: URL
+    /// The Content-Type the presigned URL was signed for (e.g. `image/png`).
+    /// Live upload URLs sign `content-type` (checked 2026-10-26): any other
+    /// value, or none, gets HTTP 403 SignatureDoesNotMatch.
+    var contentType: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case mediaID = "media_id"
         case uploadURL = "upload_url"
+        case contentType = "content_type"
     }
 
     init(from decoder: Decoder) throws {
@@ -174,6 +179,7 @@ struct MediaUploadTicket: Decodable {
             self.id = try c.decode(String.self, forKey: .mediaID)
         }
         uploadURL = try c.decode(URL.self, forKey: .uploadURL)
+        contentType = try c.decodeIfPresent(String.self, forKey: .contentType)
     }
 }
 

@@ -66,9 +66,10 @@ Run from a cloud workspace with `hfcp --cli …`, signed in through the official
 | Cost, Upscale: ByteDance video 5 s / 10 s, ByteDance image | 2 / 4 / 2 credits |
 | Cost, Upscale with Topaz | No estimate: the server says `topaz_video` doesn't support cost estimation. Per the panel code, the reason replaces the estimate and the run is still allowed (read in code, not yet seen in the panel). |
 | Cost, Draw to Edit video 5 s at 720p / still | 26 / 1.5 credits |
+| Upload a still and a short clip (`hfcp upload`) | Both uploaded and confirmed (`media_input`, `video_input`). Uploads are free and create no job. Run from Linux; the Mac's URL loading is the same API but hasn't run this yet. |
 | `hfcp preview <tool>` for all seven tools | The body the panel would submit, with placeholder ids. Matches the CLI recordings below. |
 
-**What these checks changed** (commits `a07d7a5`, `9b2f279`):
+**What these checks changed:**
 
 1. **Media layout.** Live schemas declare media as top-level properties (`video`, `video_references`, `image_references`, `start_image`, `end_image`, `ref_image`, `mask`) instead of a `params.medias` array. The app parsed none of them and would have sent `medias:[{data, role}]` for every tool that takes a clip or image. It now sends what the official CLI sends.
 2. **Draw to Edit sketch.** `draw_to_video` takes the source in `video` and the sketch in `image_references` ("the sketch image to animate"). The app would have put the sketch in `ref_image`, a style reference.
@@ -77,6 +78,7 @@ Run from a cloud workspace with `hfcp --cli …`, signed in through the official
 5. **Aspect ratio.** Live schemas carry a default (Seedance 2.0: 16:9) that overrode "keep the source shape" for Edit Video. Fixed; caught by the macOS panel tests.
 6. **CLI sign-in read.** Once, `hf auth token` returned nothing although it succeeded. The bridge now reads the CLI's output to the end before returning.
 7. The bundled catalog is now the live `GET /job_types` responses, so the offline fallback matches.
+8. **Uploads.** Upload URLs now sign the Content-Type. The app sent an empty one, which S3 refuses (403, checked with the same requests by hand), so every upload would have failed. It now sends the slot's `content_type`, as the official CLI does.
 
 ### CLI request recordings (2026-10-26)
 

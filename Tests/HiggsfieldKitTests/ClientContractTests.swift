@@ -63,7 +63,7 @@ final class ClientContractTests: XCTestCase {
 
     func testMediaUploadHandshakeMatchesCLICapture() async throws {
         let t = MockTransport()
-        t.on("POST", "/media?type=video", json: #"{"id":"55555555-5555-4555-8555-555555555555","upload_url":"https://uploads.example.com/put/abc?sig=1"}"#)
+        t.on("POST", "/media?type=video", json: #"{"id":"55555555-5555-4555-8555-555555555555","upload_url":"https://uploads.example.com/put/abc?sig=1","content_type":"video/mp4","type":"video"}"#)
         t.on("PUT", "uploads.example.com", json: "")
         t.on("POST", "/confirm", json: #"{"id":"55555555-5555-4555-8555-555555555555","status":"uploaded"}"#)
         let client = makeClient(t)
@@ -77,6 +77,8 @@ final class ClientContractTests: XCTestCase {
         XCTAssertEqual(t.requests[1].url.absoluteString, "https://uploads.example.com/put/abc?sig=1")
         XCTAssertEqual(t.requests[1].uploadedFile, file)
         XCTAssertNil(t.requests[1].headers["authorization"], "Presigned PUT must not carry the bearer token")
+        // CLI 1.2.2, recorded 2026-10-26: the PUT carries the slot's content_type, which live URLs sign.
+        XCTAssertEqual(t.requests[1].headers["content-type"], "video/mp4")
         XCTAssertEqual(t.requests[2].url.absoluteString, "\(base)/media/55555555-5555-4555-8555-555555555555/confirm?type=video")
     }
 

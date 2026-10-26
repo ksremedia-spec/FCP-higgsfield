@@ -88,13 +88,15 @@ The CLI accepted the catalog only when parameters were in `json_schema`, a JSON 
 
 ```
 POST /media?type=video&extension=mp4            (no body)
-→ {"id":"<media id>","upload_url":"<presigned URL>"}
+→ {"id":"<media id>","type":"video","url":"<CDN URL>","upload_url":"<presigned URL>","content_type":"video/mp4"}
 
-PUT <presigned URL>                             (raw bytes, empty Content-Type, no Authorization)
+PUT <presigned URL>                             (raw bytes, Content-Type = the slot's content_type, no Authorization)
 
 POST /media/{id}/confirm?type=video             (no body)
 → {"id":"<media id>","status":"uploaded"}       # only "uploaded" is accepted as usable
 ```
+
+**Checked 2026-10-26:** live upload URLs sign `content-type;host;if-none-match`. A PUT with the slot's `content_type` succeeds; with no Content-Type or an empty one, S3 answers 403 SignatureDoesNotMatch and confirm then fails with "Image validation failed". The official CLI 1.2.2 sends the slot's `content_type` (recorded locally), and an earlier capture showed it empty only because that slot named none. `hfcp upload <file>` runs this path through the app's client.
 
 `type` is `image`, `video` or `audio`.
 

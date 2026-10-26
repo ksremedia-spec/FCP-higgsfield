@@ -150,7 +150,7 @@ After each step, update the following, plainly and concisely, in the style alrea
 | Dragging a result to the timeline does nothing | Pasteboard types or FCPXML rejected | `FCPXMLDragProvider` (offers `com.apple.finalcutpro.xml.v1-10`, the generic type and a file URL), `FCPXMLBuilder.swift`. Save the XML and import it via File ▸ Import ▸ XML to see FCP's error. |
 | Add to Final Cut Pro shows the library chooser | No SDK, so no library URL. This is expected without the SDK. | `FinalCutImporter.importIntoEvent`, the `library location` import option. |
 | Submit returns 4xx | Parameter names, enums or media roles differ from the live schema | Compare with `hfcp schema <job type>`. `RequestBuilder` in `OperationDraft.swift`, `forcedParameters` in `OperationKind.swift`. |
-| Upload never finishes | Media confirm loop | `HiggsfieldClient.uploadMedia` (PUT to presigned URL with empty Content-Type, then confirm until `uploaded`) |
+| Upload never finishes | Media confirm loop | `HiggsfieldClient.uploadMedia` (PUT to presigned URL with the slot's `content_type`, then confirm until `uploaded`; `hfcp upload <file>` tests it for free) |
 | No credits or plan in the header | Workspace selection | `hfcp --cli workspaces`; the `hf-workspace-id` header |
 
 **Debugging notes**
@@ -193,7 +193,7 @@ Full details are in `docs/API-CONTRACT.md`. This is Higgsfield's **account API**
 - Cost: `POST /jobs/{job_type}/cost {"params":…}` → `{credits, credits_exact}`.
 - Submit: `POST /{images|videos|audios}/{job_type}/generations {"params":…}` → `{"id"}`.
 - Poll: `GET /jobs/{id}` → `{status, result_url, min_result_url}`.
-- Upload: `POST /media?type=&extension=` → PUT to the presigned URL with an empty Content-Type → `POST /media/{id}/confirm?type=` until `status: "uploaded"`.
+- Upload: `POST /media?type=&extension=` → PUT to the presigned URL with Content-Type = the slot's `content_type` (signed; anything else is a 403) → `POST /media/{id}/confirm?type=` until `status: "uploaded"`.
 - Media in params (live schemas, 2026-10-26): top-level properties, e.g. `"video":{"id","type"}` or `"video_references":[{"id","type"}]`, with `type` one of `video_input|media_input|video_job|image_job`. Older schemas used `"medias":[{"data":{…},"role":…}]`; the app supports both and follows the schema.
 - **There is no cancel endpoint.** *Stop Tracking* only stops polling; the job still runs and is billed.
 

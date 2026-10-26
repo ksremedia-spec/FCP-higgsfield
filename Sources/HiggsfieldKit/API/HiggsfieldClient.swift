@@ -137,8 +137,9 @@ public actor HiggsfieldClient {
 
         var put = URLRequest(url: ticket.uploadURL)
         put.httpMethod = "PUT"
-        // The CLI sends an empty Content-Type; presigned URLs are signed without one.
-        put.setValue("", forHTTPHeaderField: "Content-Type")
+        // Same as the official CLI 1.2.2: the Content-Type the upload slot names
+        // (empty only if the server names none). Live URLs sign this header.
+        put.setValue(ticket.contentType ?? "", forHTTPHeaderField: "Content-Type")
         let (putData, putResponse) = try await transport.upload(put, fromFile: fileURL)
         guard (200..<300).contains(putResponse.statusCode) else {
             throw HiggsfieldError.uploadFailed("Storage returned HTTP \(putResponse.statusCode): \(HiggsfieldError.extractMessage(from: putData))")

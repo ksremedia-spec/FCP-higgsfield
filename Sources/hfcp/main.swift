@@ -22,6 +22,7 @@ read-only commands (no credits are spent):
        [--prompt TEXT] [--set key=value]...
                                   credit estimate for a tool configuration
 
+  upload <file>                   upload a file as the panel does (free; creates no job)
   preview <operation> [--file PATH] [same options as run]
                                   the exact request the panel would submit (placeholder media ids)
 
@@ -186,6 +187,16 @@ func run() async {
             let request = try RequestBuilder.prepare(d, catalog: cat)
             let cost = try await client.estimateCost(jobType: request.jobType, params: request.costParams)
             print("\(request.jobType): \(cost.creditsExact ?? cost.credits) credits  params=\(String(decoding: try JSONValue.object(request.costParams).encodedData(), as: UTF8.self))")
+
+        case "upload":
+            // Free: uploads one file the way the panel does (slot → PUT → confirm)
+            // and prints the media reference. No job is created.
+            guard args.positional.count > 1 else { fail("upload needs a file") }
+            let client = try await makeClient(args)
+            let file = URL(fileURLWithPath: args.positional[1])
+            let kind = args.flags.contains("image") ? MediaKind.image : (MediaKind(fileExtension: file.pathExtension) ?? .video)
+            let ref = try await client.uploadMedia(fileURL: file, kind: kind)
+            print("uploaded \(file.lastPathComponent): id=\(ref.id) type=\(ref.source.rawValue)")
 
         case "preview":
             // Free: prints the submission the panel would send, with placeholder

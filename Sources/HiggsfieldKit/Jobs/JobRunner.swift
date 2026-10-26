@@ -105,6 +105,12 @@ public actor JobRunner {
         await save(record)
     }
 
+    /// Cancels all local polling (used when the panel reconnects with a new runner).
+    public func stopAll() {
+        pollTasks.values.forEach { $0.cancel() }
+        pollTasks.removeAll()
+    }
+
     public func retryDownload(_ id: UUID) async {
         guard let record = await store.record(id: id), record.remoteID != nil else { return }
         beginPolling(record)

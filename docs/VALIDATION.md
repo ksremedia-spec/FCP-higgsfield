@@ -6,7 +6,7 @@ This page lists what has been verified and how, what has not been verified yet, 
 
 | Check | Where | What it proves |
 |---|---|---|
-| **HiggsfieldKit tests on Linux** (Swift 5.10) and **macOS** (Xcode 16) | `swift test` | 65 tests (see below) |
+| **HiggsfieldKit tests on Linux** (Swift 5.10) and **macOS** (Xcode 16) | `swift test` | 66 tests (see below) |
 | **Panel tests on macOS** | `Tests/HiggsfieldPanelTests` | Draw-to-Edit sketch and mask pixels, FCPXML drag pasteboard types and data, FCP browser/project drops → sources, timeline playhead resolution, validation messages, tool defaults, graceful behaviour with no FCP host |
 | **FCPXML ⟷ Apple DTD 1.10** | `FCPXMLBuilderTests` with `FCPXML_DTD` (fetched from developer.apple.com by `tools/fetch_fcpxml_dtd.py`) | Every generated import/drag document validates with `xmllint --dtdvalid`. A deliberately broken document is rejected, so the check is real. |
 | **Container app + workflow extension build** | `xcodegen` + `xcodebuild` | Both targets compile and link against the package. The `.appex` is embedded under `PlugIns/` with `NSExtensionPointIdentifier = com.apple.FinalCut.WorkflowExtension` and the principal view controller key. |
@@ -22,7 +22,7 @@ This page lists what has been verified and how, what has not been verified yet, 
   - CLI bridge against a stand-in `hf`, including the "Not authenticated" mapping
 - **Schema** (`SchemaTests`): catalog snapshot integrity; JSON Schema parsing (`$ref`, `anyOf`, `oneOf`/`const` roles, nullable numbers); live schema overriding the snapshot; media-role resolution.
 - **Operations** (`RequestBuilderTests`): every tool's request building and validation, including model duration limits (Seedance 2.0 at 4–15 s), the 60 s reframe limit, forced modes, Draw to Edit roles, and source-dimension filling for upscalers.
-- **Jobs** (`JobRunnerTests`): end-to-end upload → submit → queued → in progress → completed → download; chaining an earlier result without re-upload; failure and credit-refusal recording; persistence and resume.
+- **Jobs** (`JobRunnerTests`): end-to-end upload → submit → queued → in progress → completed → download; chaining an earlier result without re-upload; failure and credit-refusal recording; persistence and resume; `stopAll` halting polling (used when the panel reconnects, so jobs are never polled twice).
 - **FCPXML** (`FCPXMLParsingTests`, `FCPXMLBuilderTests`):
   - FCPXML 1.8/1.10/1.13 parsing, including browser ranges with timecode starts, `<clip><video>` wrappers, connected clips and gaps
   - playhead and range resolution

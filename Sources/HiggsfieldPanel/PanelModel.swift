@@ -132,7 +132,10 @@ public final class PanelModel: ObservableObject {
         notificationObservers.append(center.addObserver(forName: .higgsfieldInboxChanged, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.refreshInbox() }
         })
-        notificationObservers.append(center.addObserver(forName: .higgsfieldSessionChanged, object: nil, queue: .main) { [weak self] _ in
+        // Only react to sign-in changes made by the other process (app ⟷ extension).
+        let me = Self.processTag
+        notificationObservers.append(center.addObserver(forName: .higgsfieldSessionChanged, object: nil, queue: .main) { [weak self] note in
+            guard (note.object as? String) != me else { return }
             Task { @MainActor in await self?.restoreSession() }
         })
     }
@@ -234,6 +237,7 @@ public final class PanelModel: ObservableObject {
     public func signOut() {
         try? configuration.storage.tokenStore().clear()
         client = nil
+        if let runner { Task { await runner.stopAll() } }
         runner = nil
         account = nil
         workspaces = []
@@ -247,6 +251,15 @@ public final class PanelModel: ObservableObject {
             configuration: HiggsfieldConfiguration(userAgent: "HiggsfieldFCP/\(Self.appVersion) (\(isExtension ? "FCP extension" : "app"))"),
             tokenProvider: provider
         )
+        // Replace any previous session's runner so jobs are never polled twice.
+        if let old = runner { await old.stopAll() }
+        let runner = JobRunner(client: client, store: store, output: OutputLocation(root: outputRoot),
+                               trimmer: AVMediaTrimmer(workDirectory: configuration.storage.workDirectory))
+        await runner.setUpdateHandler { [weak self] record in
+            Task { @MainActor in self?.jobUpdated(record) }
+        }
+        self.client = client
+        self.runner = runner
         do {
             let spaces = try await client.workspaces()
             workspaces = spaces
@@ -254,26 +267,29 @@ public final class PanelModel: ObservableObject {
             workspaceID = selected?.id
             await client.setWorkspace(selected?.id)
             account = try await client.balance()
-            self.client = client
-            let runner = JobRunner(client: client, store: store, output: OutputLocation(root: outputRoot),
-                                   trimmer: AVMediaTrimmer(workDirectory: configuration.storage.workDirectory))
-            await runner.setUpdateHandler { [weak self] record in
-                Task { @MainActor in self?.jobUpdated(record) }
-            }
-            self.runner = runner
             authState = .signedIn(source)
-            await runner.resumeActiveJobs()
-            loadLiveSchemas()
-            scheduleCostEstimate()
         } catch let error as HiggsfieldError {
-            if case .notSignedIn = error { authState = .signedOut; return }
-            if case .unauthorized = error { authState = .signedOut }
-            else { authState = .signedIn(source); self.client = client }
-            show(error)
+            switch error {
+            case .notSignedIn, .unauthorized:
+                self.client = nil
+                self.runner = nil
+                authState = .signedOut
+                if case .unauthorized = error { show(error) }
+                return
+            default:
+                // Network or server trouble: stay signed in so the user can retry.
+                authState = .signedIn(source)
+                show(error)
+            }
         } catch {
-            authState = .signedOut
+            authState = .signedIn(source)
             show(error)
         }
+        // A newer connect may have replaced this runner while we awaited.
+        guard self.runner === runner else { return }
+        await runner.resumeActiveJobs()
+        loadLiveSchemas()
+        scheduleCostEstimate()
     }
 
     public func selectWorkspace(_ id: String) {
@@ -313,8 +329,12 @@ public final class PanelModel: ObservableObject {
         throw HiggsfieldError.cliUnavailable("The Higgsfield for Final Cut Pro app didn’t return a session. Open it once and choose “Use Higgsfield CLI session”.")
     }
 
+    /// Identifies this process in distributed notifications.
+    nonisolated static let processTag = "pid-\(ProcessInfo.processInfo.processIdentifier)"
+
     private func notifySessionChanged() {
-        DistributedNotificationCenter.default().postNotificationName(.higgsfieldSessionChanged, object: nil, userInfo: nil, deliverImmediately: true)
+        DistributedNotificationCenter.default().postNotificationName(.higgsfieldSessionChanged, object: Self.processTag,
+                                                                     userInfo: nil, deliverImmediately: true)
     }
 
     // MARK: Drafts

@@ -316,6 +316,26 @@ final class JobRunnerTests: XCTestCase {
         XCTAssertEqual(all.first?.phase, .failed)
     }
 
+    func testStopAllHaltsPolling() async throws {
+        let t = MockTransport()
+        t.on("GET", "/jobs/job-9", json: #"{"id":"job-9","status":"in_progress"}"#)
+        let dir = try temporaryFile(named: "x").deletingLastPathComponent()
+        let store = JobStore(url: dir.appendingPathComponent("jobs.json"))
+        var record = JobRecord(operation: .upscale, jobType: "topaz_video", modelName: "Topaz", output: .video, phase: .queued)
+        record.remoteID = "job-9"
+        await store.upsert(record)
+        let runner = JobRunner(client: makeClient(t), store: store, transport: t, output: OutputLocation(root: dir),
+                               sleeper: { _ in try? await Task.sleep(nanoseconds: 5_000_000) })
+        await runner.resumeActiveJobs()
+        try await Task.sleep(nanoseconds: 60_000_000)
+        await runner.stopAll()
+        try await Task.sleep(nanoseconds: 20_000_000)
+        let countAfterStop = t.requests("GET", "/jobs/job-9").count
+        XCTAssertGreaterThan(countAfterStop, 0)
+        try await Task.sleep(nanoseconds: 60_000_000)
+        XCTAssertEqual(t.requests("GET", "/jobs/job-9").count, countAfterStop, "no polling after stopAll")
+    }
+
     private func waitFor(_ store: JobStore, id: UUID, timeout: TimeInterval = 5, _ predicate: (JobRecord) -> Bool) async throws -> JobRecord {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {

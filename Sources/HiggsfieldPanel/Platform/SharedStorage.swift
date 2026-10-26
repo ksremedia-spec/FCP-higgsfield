@@ -36,7 +36,11 @@ public struct SharedStorage: Sendable {
         self.keychainGroup = keychainGroup
     }
 
-    public var jobsFile: URL { root.appendingPathComponent("jobs.json") }
+    /// Separate job lists for the app window and the extension, so two
+    /// processes never poll and rewrite the same records.
+    public func jobsFile(extension isExtension: Bool) -> URL {
+        root.appendingPathComponent(isExtension ? "jobs-extension.json" : "jobs-app.json")
+    }
     /// Files received from Final Cut Pro's File ▸ Share (“Open with” the container app).
     public var inbox: URL { root.appendingPathComponent("Inbox", isDirectory: true) }
     public var workDirectory: URL { FileManager.default.temporaryDirectory.appendingPathComponent("HiggsfieldFCP", isDirectory: true) }

@@ -80,7 +80,11 @@ public actor CLITokenProvider: AccessTokenProvider {
     /// Tokens are re-read after this interval even without a 401.
     private let maxAge: TimeInterval
 
-    public init(bridge: HiggsfieldCLIBridge, store: TokenStore? = nil, maxAge: TimeInterval = 300) {
+    /// How long a token from `hf auth token` is reused before asking the CLI
+    /// again. A 401 always forces a fresh one immediately.
+    public static let defaultMaxAge: TimeInterval = 1800
+
+    public init(bridge: HiggsfieldCLIBridge, store: TokenStore? = nil, maxAge: TimeInterval = CLITokenProvider.defaultMaxAge) {
         self.bridge = bridge
         self.store = store
         self.maxAge = maxAge

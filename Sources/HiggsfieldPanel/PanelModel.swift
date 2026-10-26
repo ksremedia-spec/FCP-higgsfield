@@ -108,7 +108,7 @@ public final class PanelModel: ObservableObject {
 
     public init(configuration: Configuration) {
         self.configuration = configuration
-        self.store = JobStore(url: configuration.storage.jobsFile)
+        self.store = JobStore(url: configuration.storage.jobsFile(extension: configuration.context == .workflowExtension))
         let settings = PanelSettings.load(from: configuration.storage.settingsFile)
         self.settings = settings
         self.operation = settings.lastOperation
@@ -209,7 +209,7 @@ public final class PanelModel: ObservableObject {
                     try await bridge.login()
                     token = try await bridge.accessToken()
                 }
-                try tokenStore.save(TokenSet(accessToken: token, expiresAt: Date().addingTimeInterval(300), source: .higgsfieldCLI))
+                try tokenStore.save(TokenSet(accessToken: token, expiresAt: Date().addingTimeInterval(CLITokenProvider.defaultMaxAge), source: .higgsfieldCLI))
             }
             await connect(provider: provider(for: .higgsfieldCLI), source: .higgsfieldCLI)
             notifySessionChanged()
@@ -357,12 +357,18 @@ public final class PanelModel: ObservableObject {
         return d
     }
 
-    /// The catalog gives no default aspect ratio: Reframe starts on 9:16 (the
-    /// most common conversion), generation tools on 16:9, else the first option.
+    /// The catalog gives no default aspect ratio. Reframe starts on 9:16 (the
+    /// most common conversion), generation tools on 16:9, and tools that
+    /// process existing footage keep the source shape ("auto").
     private func applyPreferredAspectRatio(_ d: inout OperationDraft, op: OperationKind) {
         guard d.values["aspect_ratio"] == nil,
               case .choice(let options)? = catalog.option(d.jobType)?.schema.parameter(named: "aspect_ratio")?.kind else { return }
-        let preferred: [JSONValue] = op == .reframe ? ["9:16", "16:9"] : ["16:9", "auto"]
+        let preferred: [JSONValue]
+        switch op {
+        case .reframe: preferred = ["9:16", "16:9"]
+        case .generateVideo, .generateImage: preferred = ["16:9", "auto"]
+        case .editVideo, .removeBackground, .upscale, .drawToEdit: preferred = ["auto"]
+        }
         d.values["aspect_ratio"] = preferred.first(where: options.contains) ?? options.first
     }
 

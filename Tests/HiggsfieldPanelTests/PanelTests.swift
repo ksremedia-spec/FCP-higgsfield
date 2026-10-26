@@ -112,6 +112,8 @@ final class PanelTests: XCTestCase {
         model.selectModel("veo3_1")
         XCTAssertEqual(model.draft.values["aspect_ratio"], "16:9")
         XCTAssertEqual(model.draft.values["duration"], 8, "schema default")
+        XCTAssertEqual(model.drafts[.upscale]?.values["aspect_ratio"], "auto", "processing tools keep the source shape")
+        XCTAssertEqual(model.drafts[.editVideo]?.values["aspect_ratio"], "auto")
     }
 
     func testFrameRateLabel() {

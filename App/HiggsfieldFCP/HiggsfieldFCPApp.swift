@@ -73,22 +73,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// `higgsfieldfcp://cli-token`: the extension asks for a fresh token from
-    /// the official CLI (`hf auth token`), which this unsandboxed app can run.
+    /// `higgsfieldfcp://cli-token`: the sandboxed extension asks for a fresh
+    /// token from the official CLI (`hf auth token`, or `hf auth login` first
+    /// when the CLI isn't signed in). The token is written to the shared
+    /// Keychain and both panels are notified.
     private func handleCommand(_ url: URL) {
         guard url.host == "cli-token" else { return }
-        let store = storage.tokenStore()
-        Task {
-            do {
-                _ = try await CLITokenProvider(bridge: HiggsfieldCLIBridge(), store: store).accessToken(forceRefresh: true)
-                DistributedNotificationCenter.default().postNotificationName(.higgsfieldSessionChanged, object: nil, userInfo: nil, deliverImmediately: true)
-            } catch {
-                let alert = NSAlert()
-                alert.messageText = "Couldn’t get a Higgsfield session from the CLI"
-                alert.informativeText = (error as? HiggsfieldError)?.userMessage ?? error.localizedDescription
-                alert.runModal()
-            }
-        }
+        Task { await model.signInWithCLI() }
     }
 
     /// Final Cut Pro rendered a clip/range via the Share destination; make it

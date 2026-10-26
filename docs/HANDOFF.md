@@ -12,9 +12,9 @@ This repo is a Final Cut Pro edition of the official [Higgsfield Premiere Pro pl
 |---|---|
 | Repo | `github.com/ksremedia-spec/FCP-higgsfield` |
 | Branch | **`claude/fcp-edition`**. The remote has no `main` yet and there is no PR. Clone with `-b claude/fcp-edition`. |
-| Last commit | `70dd5d8` Optional paid-team signing (CI run #15, all green) |
+| Last commit | See `git log`. On 2026-10-26 the free live checks (step A) ran through `hfcp` from a cloud workspace and the fixes they called for were committed; step D (comparison) is written up in PARITY. |
 | Other branch | `ci/panel-snapshots`, force-pushed by CI with offscreen panel renders. Don't build on it. |
-| Owner's account (read-only check, earlier) | Plus plan, 854 credits. Reframe cost preflight: 10 s at 1080p = 123 credits, 30 s at 720p = 140. |
+| Owner's account (read-only check, 2026-10-26) | Plus plan, 854.14 credits. Reframe cost: 10 s at 1080p = 123 credits, 30 s at 720p = 138. All estimates are in VALIDATION.md. |
 
 ## Ground rules from the owner
 
@@ -82,20 +82,17 @@ $H --cli catalog --type video | head -50
 $H --cli catalog --chain
 for jt in reframe draw_to_video video_background_remover image_background_remover topaz_video \
           bytedance_video_upscale bytedance_image_upscale kling_video_edit seedance_2_0 seedance_2_5 \
-          nano_banana_2 nano_banana_pro; do echo "== $jt"; $H --cli schema "$jt"; done
+          flux_3_video_edit nano_banana_flash nano_banana_pro; do echo "== $jt"; $H --cli schema "$jt"; done
 $H --cli cost reframe --duration 10 --set aspect_ratio=9:16 --set resolution=1080p     # expect about 123
 $H --cli cost generateVideo --prompt "slow dolly in on a lighthouse"
 $H --cli cost generateImage --prompt "product shot"
 $H --cli cost editVideo --prompt "make it snow" --duration 6
 $H --cli cost removeBackground --duration 5
-$H --cli cost upscale --duration 5 --width 1280 --height 720 --set resolution=2160p
-$H --cli cost drawToEdit --prompt "make the jacket red" --duration 5
+$H --cli cost upscale --model bytedance_video_upscale --duration 5 --width 1280 --height 720   # Topaz has no estimate
+$H --cli cost drawToEdit --prompt "make the jacket red" --duration 5 --set resolution=720p
 ```
 
-The schema output settles two open questions:
-
-- **Draw to Edit sketch role.** The code assumes the sketch goes in as `sketch`, falling back to `ref_image`. Check the media roles in `schema draw_to_video` and fix `OperationKind` / `MediaSlot` if they differ.
-- **Edit Video roles per model.** Check the media roles for `seedance_2_0`, `kling_video_edit`, `seedance_2_5` and `flux_3_video_edit`.
+**Done on 2026-10-26** (VALIDATION.md has the results). It settled both open questions: the Draw to Edit sketch goes in `image_references`, and all four Edit Video models take `video_references`. It also found that media are now top-level properties, and that `nano_banana_2` and `soul_2` are stale ids; all fixed. Re-run step A on the Mac only as a sanity check. `$H --cli preview <tool> …` prints the exact request the panel would submit, for free.
 
 If live schemas differ from the bundled fallback (`Sources/HiggsfieldKit/Operations/CatalogSnapshot.swift`), the live one wins at run time. Fix the snapshot too: update `tools/catalog-snapshot-2026-10-26.json` and run `python3 tools/generate_catalog_snapshot.py`.
 
@@ -132,7 +129,7 @@ Tick the items off in that file as they pass.
 
 ### D. Compare with the official plugin
 
-`higgsfield.ai` was blocked from the build sandbox, so the official page, its screenshots and the demo video were never seen directly; Premiere behaviour came from search extracts (`docs/RESEARCH.md`). From the Mac, open <https://higgsfield.ai/plugins/premiere-pro> and the demo, and compare tool order, labels, panel layout and progress UI. Then adjust the panel and record the differences in `docs/PARITY.md`.
+**Compared on 2026-10-26** from the official page, its panel screenshots and its demo video; see PARITY, *Panel layout vs the official plugin*. The official panel is a home screen (recent generations plus an app grid, a floating prompt bar), not a tool strip. The panel has **not** been reworked: that redesign waits for the owner's decision.
 
 ### E. Keep the docs honest
 
@@ -179,12 +176,12 @@ Tool → job types (first available wins; the user can pick others):
 | Tool | Job types |
 |---|---|
 | Generate Video | `seedance_2_0`, `kling3_0`, `veo3_1`, … |
-| Generate Image | `nano_banana_2`, `nano_banana_pro`, `gpt_image_2`, … |
+| Generate Image | `nano_banana_flash` ("Nano Banana 2"), `nano_banana_pro`, `gpt_image_2`, … |
 | Edit Video | `seedance_2_0`, `kling_video_edit`, `seedance_2_5` (forced `mode: video_edit`), `flux_3_video_edit` |
 | Reframe | `reframe` (60 s maximum) |
 | Remove Background | `video_background_remover` / `image_background_remover` |
 | Upscale | `topaz_video`, `bytedance_video_upscale` / `bytedance_image_upscale` |
-| Draw to Edit | `draw_to_video` / `nano_banana_2` with a mask (`is_inpaint`) |
+| Draw to Edit | `draw_to_video` (source in `video`, sketch in `image_references`) / `nano_banana_flash` with a mask (`is_inpaint`) |
 
 ## 5. API essentials
 
@@ -197,7 +194,7 @@ Full details are in `docs/API-CONTRACT.md`. This is Higgsfield's **account API**
 - Submit: `POST /{images|videos|audios}/{job_type}/generations {"params":…}` → `{"id"}`.
 - Poll: `GET /jobs/{id}` → `{status, result_url, min_result_url}`.
 - Upload: `POST /media?type=&extension=` → PUT to the presigned URL with an empty Content-Type → `POST /media/{id}/confirm?type=` until `status: "uploaded"`.
-- Media in params: `{"data":{"id","type":"video_input|media_input|video_job|image_job"},"role":…}`.
+- Media in params (live schemas, 2026-10-26): top-level properties, e.g. `"video":{"id","type"}` or `"video_references":[{"id","type"}]`, with `type` one of `video_input|media_input|video_job|image_job`. Older schemas used `"medias":[{"data":{…},"role":…}]`; the app supports both and follows the schema.
 - **There is no cancel endpoint.** *Stop Tracking* only stops polling; the job still runs and is billed.
 
 ## 6. Decisions to keep (and why)

@@ -106,11 +106,22 @@ POST /{images|videos|audios}/{job_type}/generations
 → {"id":"<job id>"}
 ```
 
-Media go in `params.medias`:
+**Media layout (live schemas, checked 2026-10-26).** Each media input is a top-level property of `params`, named by the job type's schema: a single object (`video`, `start_image`, `end_image`, `ref_image`, `mask`) or an array (`video_references`, `image_references`, `audio_references`). The official CLI 1.2.2 sends them that way:
 
 ```json
-{"data": {"id": "<uuid>", "type": "video_input"}, "role": "video"}
+// hf generate create draw_to_video --prompt "make the jacket red" --video <id> --image-references <sketch id> --duration 5 --resolution 720p
+{"params":{"duration":5,"image_references":[{"id":"2222…","type":"media_input"}],"prompt":"make the jacket red","resolution":"720p","video":{"id":"1111…","type":"video_input"}}}
+
+// hf generate create reframe --video-references <id> --aspect_ratio 9:16
+{"params":{"aspect_ratio":"9:16","video_references":[{"id":"1111…","type":"video_input"}]}}
+
+// hf generate create nano_banana_flash --prompt "make it red" --image-references <id> --mask '{"id":…}' --is_inpaint true
+{"params":{"image_references":[{"id":"2222…","type":"media_input"}],"is_inpaint":true,"mask":{"id":"3333…","type":"media_input"},"prompt":"make it red"}}
 ```
+
+These were recorded through a local proxy that answered every request itself; nothing reached Higgsfield. The app reads which properties a job type has from its live schema and builds the same bodies (`LiveLayoutContractTests`).
+
+**Earlier layout.** The first captures (below) used a `params.medias` array, `{"data": {"id": "<uuid>", "type": "video_input"}, "role": "video"}`. The app still uses it for a schema that declares `medias`.
 
 | `data.type` | Meaning (observed) |
 |---|---|
@@ -118,7 +129,7 @@ Media go in `params.medias`:
 | `media_input` | uploaded image |
 | `video_job` / `image_job` | output of an earlier job (no re-upload) |
 
-Captured bodies:
+Earlier captured bodies (`medias` layout):
 
 ```json
 // hf generate workflow reframe --video <uploaded id> --aspect-ratio 9:16

@@ -60,9 +60,10 @@ public struct AVMediaTrimmer: MediaTrimming {
             session.outputFileType = .mov
             session.timeRange = range
             session.shouldOptimizeForNetworkUse = true
+            let box = ExportSessionBox(session)
             let ok: Bool = await withCheckedContinuation { continuation in
-                session.exportAsynchronously {
-                    continuation.resume(returning: session.status == .completed)
+                box.session.exportAsynchronously {
+                    continuation.resume(returning: box.session.status == .completed)
                 }
             }
             if ok { return output }
@@ -70,6 +71,13 @@ public struct AVMediaTrimmer: MediaTrimming {
         }
         throw HiggsfieldError.invalidInput("Couldn’t trim “\(source.lastPathComponent)”.")
     }
+}
+
+/// Carries the export session into the `@Sendable` completion handler;
+/// the session is only read after export finishes.
+private final class ExportSessionBox: @unchecked Sendable {
+    let session: AVAssetExportSession
+    init(_ session: AVAssetExportSession) { self.session = session }
 }
 
 /// Grabs still frames for thumbnails and the Draw to Edit canvas.

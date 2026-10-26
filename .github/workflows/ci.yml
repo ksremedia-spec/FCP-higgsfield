@@ -49,6 +49,7 @@ jobs:
       - name: Build container app + Final Cut Pro workflow extension
         run: |
           set -o pipefail
+          mkdir -p build
           xcodebuild -project App/HiggsfieldFCP.xcodeproj \
             -scheme HiggsfieldFCP -configuration Debug \
             -destination 'platform=macOS' \

@@ -93,7 +93,7 @@ public struct JobRecord: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// JSON-file persistence for job records (in the shared App Group container).
+/// JSON-file persistence for job records (in the panel's shared folder).
 public actor JobStore {
     private let url: URL
     private var records: [JobRecord] = []

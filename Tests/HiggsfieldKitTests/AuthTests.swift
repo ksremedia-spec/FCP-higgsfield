@@ -134,6 +134,28 @@ final class AuthTests: XCTestCase {
         XCTAssertEqual(try store2.load()?.accessToken, "B", "a credential written by the other process survives")
     }
 
+    func testFallbackProviderUsesAppWhenCLIUnavailable() async throws {
+        struct Failing: AccessTokenProvider {
+            let error: HiggsfieldError
+            func accessToken(forceRefresh: Bool) async throws -> String { throw error }
+        }
+        let viaApp = StaticTokenProvider(token: "FROM_APP")
+        let blocked = FallbackTokenProvider(primary: Failing(error: .cliUnavailable("sandbox")), fallback: viaApp)
+        let blockedToken = try await blocked.accessToken(forceRefresh: false)
+        XCTAssertEqual(blockedToken, "FROM_APP")
+        let loggedOut = FallbackTokenProvider(primary: Failing(error: .notSignedIn), fallback: viaApp)
+        let loggedOutToken = try await loggedOut.accessToken(forceRefresh: false)
+        XCTAssertEqual(loggedOutToken, "FROM_APP")
+        let direct = FallbackTokenProvider(primary: StaticTokenProvider(token: "DIRECT"), fallback: viaApp)
+        let directToken = try await direct.accessToken(forceRefresh: false)
+        XCTAssertEqual(directToken, "DIRECT")
+        // Other failures (e.g. a rejected token) are not hidden by the fallback.
+        let rejected = FallbackTokenProvider(primary: Failing(error: .unauthorized("bad")), fallback: viaApp)
+        do { _ = try await rejected.accessToken(forceRefresh: true); XCTFail() } catch let e as HiggsfieldError {
+            XCTAssertEqual(e, .unauthorized("bad"))
+        }
+    }
+
     func testOAuthProviderWithoutTokensRequiresSignIn() async {
         let provider = OAuthTokenProvider(configuration: OAuthConfiguration(clientID: "C", redirectURI: "x"), store: MemoryTokenStore(), transport: MockTransport())
         do {
@@ -198,6 +220,30 @@ final class AuthTests: XCTestCase {
         } catch let e as HiggsfieldError {
             XCTAssertEqual(e, .notSignedIn)
         }
+    }
+
+    func testCLIBridgeResolvesNpmShimToNativeBinary() throws {
+        // Layout of `npm install -g @higgsfield/cli`:
+        //   <prefix>/bin/higgsfield -> ../lib/node_modules/@higgsfield/cli/bin/higgsfield.js
+        //   <prefix>/lib/node_modules/@higgsfield/cli/vendor/hf
+        let prefix = FileManager.default.temporaryDirectory.appendingPathComponent("npm-\(UUID().uuidString)")
+        let pkg = prefix.appendingPathComponent("lib/node_modules/@higgsfield/cli")
+        let fm = FileManager.default
+        try fm.createDirectory(at: pkg.appendingPathComponent("bin"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: pkg.appendingPathComponent("vendor"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: prefix.appendingPathComponent("bin"), withIntermediateDirectories: true)
+        let shim = pkg.appendingPathComponent("bin/higgsfield.js")
+        try Data("#!/usr/bin/env node\nrequire('./run.js')();\n".utf8).write(to: shim)
+        let native = pkg.appendingPathComponent("vendor/hf")
+        try Data("#!/bin/sh\necho NATIVE_TOKEN\n".utf8).write(to: native)
+        for f in [shim, native] { try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: f.path) }
+        try fm.createSymbolicLink(atPath: prefix.appendingPathComponent("bin/higgsfield").path,
+                                  withDestinationPath: "../lib/node_modules/@higgsfield/cli/bin/higgsfield.js")
+
+        let found = HiggsfieldCLIBridge.locate(environment: ["PATH": prefix.appendingPathComponent("bin").path, "HOME": "/nonexistent"])
+        XCTAssertEqual(found?.path, native.standardizedFileURL.path, "the Node shim is bypassed in favour of vendor/hf")
+        let token = try XCTUnwrap(found)
+        XCTAssertEqual(HiggsfieldCLIBridge(executableURL: token, environment: [:]).executableURL, token)
     }
 
     func testCLIBridgeLocatesExecutableOnPath() throws {

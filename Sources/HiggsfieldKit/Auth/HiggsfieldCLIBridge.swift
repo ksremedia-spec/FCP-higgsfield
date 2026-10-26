@@ -14,10 +14,27 @@ public struct HiggsfieldCLIBridge: Sendable {
 
     /// Search order: `HIGGSFIELD_CLI_PATH`, then `PATH`, then the usual
     /// Homebrew/npm global locations (GUI apps do not inherit a login shell's PATH).
+    ///
+    /// `npm install -g @higgsfield/cli` installs `higgsfield`/`higgs` as a Node
+    /// shim (`#!/usr/bin/env node`) that launches the native binary at
+    /// `<package>/vendor/hf`. Apps started from Finder often can't find `node`,
+    /// so the shim is resolved to that native binary whenever it exists.
     public static func locate(environment: [String: String], fileManager: FileManager = .default) -> URL? {
         if let explicit = environment["HIGGSFIELD_CLI_PATH"], fileManager.isExecutableFile(atPath: explicit) {
-            return URL(fileURLWithPath: explicit)
+            return nativeBinary(for: URL(fileURLWithPath: explicit), fileManager: fileManager)
         }
+        for dir in searchDirectories(environment: environment, fileManager: fileManager) {
+            for name in ["hf", "higgsfield", "higgs"] {
+                let path = (dir as NSString).appendingPathComponent(name)
+                if fileManager.isExecutableFile(atPath: path) {
+                    return nativeBinary(for: URL(fileURLWithPath: path), fileManager: fileManager)
+                }
+            }
+        }
+        return nil
+    }
+
+    static func searchDirectories(environment: [String: String], fileManager: FileManager = .default) -> [String] {
         let home = environment["HOME"] ?? NSHomeDirectory()
         var dirs = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
         dirs += [
@@ -28,13 +45,31 @@ public struct HiggsfieldCLIBridge: Sendable {
         if let nvm = try? fileManager.contentsOfDirectory(atPath: "\(home)/.nvm/versions/node") {
             dirs += nvm.sorted().reversed().map { "\(home)/.nvm/versions/node/\($0)/bin" }
         }
-        for dir in dirs {
-            for name in ["hf", "higgsfield", "higgs"] {
-                let path = (dir as NSString).appendingPathComponent(name)
-                if fileManager.isExecutableFile(atPath: path) { return URL(fileURLWithPath: path) }
-            }
+        var seen = Set<String>()
+        return dirs.filter { seen.insert($0).inserted }
+    }
+
+    /// Maps an npm shim to the package's native `vendor/hf` binary.
+    static func nativeBinary(for url: URL, fileManager: FileManager = .default) -> URL {
+        let resolved = URL(fileURLWithPath: resolveSymlinks(url.path, fileManager: fileManager))
+        guard resolved.pathExtension == "js" else { return url }
+        // <package>/bin/higgsfield.js → <package>/vendor/hf
+        let vendor = resolved.deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("vendor").appendingPathComponent("hf")
+        return fileManager.isExecutableFile(atPath: vendor.path) ? vendor : url
+    }
+
+    /// Follows a chain of (possibly relative) symlinks, as npm creates them.
+    static func resolveSymlinks(_ path: String, fileManager: FileManager = .default) -> String {
+        var current = path
+        for _ in 0..<16 {
+            guard let destination = try? fileManager.destinationOfSymbolicLink(atPath: current) else { break }
+            let next = destination.hasPrefix("/")
+                ? destination
+                : ((current as NSString).deletingLastPathComponent as NSString).appendingPathComponent(destination)
+            current = (next as NSString).standardizingPath
         }
-        return nil
+        return current
     }
 
     public var isInstalled: Bool { executableURL != nil }
@@ -75,6 +110,8 @@ public struct HiggsfieldCLIBridge: Sendable {
         }
         var env = environment
         env["HIGGSFIELD_DISABLE_TELEMETRY"] = env["HIGGSFIELD_DISABLE_TELEMETRY"] ?? "1"
+        // If a shim is still used, let `/usr/bin/env node` find Node.
+        env["PATH"] = Self.searchDirectories(environment: environment).joined(separator: ":")
         let processEnvironment = env
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()

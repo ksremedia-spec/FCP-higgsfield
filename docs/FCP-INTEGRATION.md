@@ -45,7 +45,16 @@ Unsupported in browser drags: compound clips (`ref-clip`), multicam (`mc-clip`),
 
 ### Sandbox note
 
-The extension must be sandboxed, and an FCPXML drag carries paths, not sandbox extensions. The extension therefore declares read-only temporary exceptions for `/Volumes/` and the home folder, which is fine for Developer ID distribution. If a file still can't be read, the panel shows **Allow…**, which opens a powerbox panel for that folder (security-scoped).
+The extension must be sandboxed, and an FCPXML drag carries paths, not sandbox extensions. As a personal tool it declares temporary exceptions for:
+
+- read-only: `/Volumes/` and the home folder (source media), and `/opt/homebrew/` and `/usr/local/` (the Higgsfield CLI)
+- read-write: `~/Library/Application Support/HiggsfieldFCP/` (shared with the container app) and the CLI's own login folder
+
+If a file still can't be read, the panel shows **Allow…**, which opens a folder chooser and remembers your grant as a security-scoped bookmark.
+
+### Sharing between the app and the extension
+
+Both processes use `~/Library/Application Support/HiggsfieldFCP/` for job history, settings, the Share inbox, and the sign-in token (a private 0600 file). That works with free personal signing. If an App Group and Keychain access group are configured (optional, paid team), the panel uses those instead.
 
 ## Returning results to Final Cut Pro
 
@@ -76,6 +85,6 @@ Apple distributes `ProExtensionHost.framework` with the Workflow Extension SDK, 
 
 ## Install and enable (per Apple)
 
-1. Build the scheme `HiggsfieldFCP`: `xcodegen generate --spec App/project.yml`, then open `App/HiggsfieldFCP.xcodeproj`. Sign with your team.
+1. Build the scheme `HiggsfieldFCP`: run `xcodegen generate --spec App/project.yml`, then open `App/HiggsfieldFCP.xcodeproj`. Sign both targets with your Apple ID (Personal Team is fine).
 2. Copy *Higgsfield for Final Cut Pro.app* to `/Applications` and launch it once. This registers the extension.
 3. In Final Cut Pro: Extensions button in the toolbar, or **Window ▸ Extensions ▸ Higgsfield**.

@@ -6,7 +6,7 @@ This page lists what has been verified and how, what has not been verified yet, 
 
 | Check | Where | What it proves |
 |---|---|---|
-| **HiggsfieldKit tests on Linux** (Swift 5.10) and **macOS** (Xcode 16) | `swift test` | 71 tests (see below) |
+| **HiggsfieldKit tests on Linux** (Swift 5.10) and **macOS** (Xcode 16) | `swift test` | 73 tests (see below) |
 | **Panel tests on macOS** | `Tests/HiggsfieldPanelTests` | Draw-to-Edit sketch and mask pixels, FCPXML drag pasteboard types and data, FCP browser/project drops → sources, timeline playhead resolution, validation messages, tool defaults, graceful behaviour with no FCP host |
 | **FCPXML ⟷ Apple DTD 1.10** | `FCPXMLBuilderTests` with `FCPXML_DTD` (fetched from developer.apple.com by `tools/fetch_fcpxml_dtd.py`) | Every generated import/drag document validates with `xmllint --dtdvalid`. A deliberately broken document is rejected, so the check is real. |
 | **Container app + workflow extension build** | `xcodegen` + `xcodebuild` | Both targets compile and link against the package. The `.appex` is embedded under `PlugIns/` with `NSExtensionPointIdentifier = com.apple.FinalCut.WorkflowExtension` and the principal view controller key. |
@@ -72,7 +72,8 @@ The official CLI's behaviour was also verified through a capture proxy, with no 
 | **Remove Background output format** (alpha? container?) | Needs a live run | `hfcp run removeBackground --file clip.mov --yes`, then check the file in FCP |
 | **Draw to Edit sketch role** (`sketch` vs `ref_image`) | Needs the live schema | `hfcp schema draw_to_video` |
 | **Anything inside Final Cut Pro** (L5) | No Mac/FCP in the build environment | The acceptance checklist below |
-| **Built-in "Sign in with Higgsfield"** | Needs an OAuth client ID issued by Higgsfield | Set `HIGGSFIELD_OAUTH_CLIENT_ID` in `App/project.yml` |
+| **The extension running the CLI inside its sandbox** | Needs a Mac | Sign in from the extension. If the sandbox blocks the CLI, the panel falls back to the container app automatically; either way it should connect. |
+| **Built-in "Sign in with Higgsfield"** (optional) | Needs an OAuth client ID issued by Higgsfield | Set `HIGGSFIELD_OAUTH_CLIENT_ID` in `App/project.yml` |
 | **Timeline API binding** (`ProExtensionHost`) | Needs Apple's Workflow Extension SDK and FCP | `scripts/configure-workflow-sdk.sh`, then the checklist |
 
 ## Live API check in CI (no credits spent)
@@ -106,7 +107,7 @@ Each run prints the phases (`Uploading`, `Queued`, `Generating`, `Downloading`, 
 Setup:
 
 - [ ] Optional SDK step: `scripts/configure-workflow-sdk.sh`.
-- [ ] `xcodegen generate --spec App/project.yml`, open the project, set your Team, build **HiggsfieldFCP**.
+- [ ] `xcodegen generate --spec App/project.yml`, open the project, sign both targets with your Apple ID (Personal Team), build **HiggsfieldFCP**.
 - [ ] Copy the app to `/Applications` and launch it once.
 - [ ] FCP shows **Higgsfield** in the toolbar Extensions menu and under **Window ▸ Extensions**.
 

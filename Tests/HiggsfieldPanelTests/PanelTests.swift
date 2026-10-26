@@ -157,6 +157,22 @@ final class PanelTests: XCTestCase {
         XCTAssertEqual(SourceWellView.frameRateLabel(29.97), "29.97")
     }
 
+    func testPersonalSetupSharesAFolderAndAFileToken() throws {
+        // No App Group / Keychain group configured (the default personal build).
+        let storage = SharedStorage(root: tempRoot)
+        let store = storage.tokenStore()
+        XCTAssertTrue(store is FileTokenStore)
+        try store.save(TokenSet(accessToken: "T", source: .higgsfieldCLI))
+        let file = tempRoot.appendingPathComponent("credentials.json")
+        let perms = try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? Int
+        XCTAssertEqual(perms, 0o600)
+        // A second process reading the same folder sees the same token.
+        XCTAssertEqual(try SharedStorage(root: tempRoot).tokenStore().load()?.accessToken, "T")
+        // The default root is the real home's Application Support, not a sandbox container.
+        XCTAssertTrue(SharedStorage(bundle: .main).root.path.hasSuffix("Library/Application Support/HiggsfieldFCP"))
+        XCTAssertFalse(SharedStorage.realHomeDirectory.path.contains("/Library/Containers/"))
+    }
+
     func testTimecodeFormatting() {
         let state = TimelineState(frameDuration: 0.04, playhead: 3605.5)
         XCTAssertEqual(state.timecode(state.playhead), "01:00:05:12")

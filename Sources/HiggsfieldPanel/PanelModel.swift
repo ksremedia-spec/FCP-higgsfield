@@ -91,7 +91,7 @@ public final class PanelModel: ObservableObject {
 
     public let configuration: Configuration
     public var isExtension: Bool { configuration.context == .workflowExtension }
-    public var isCLIInstalled: Bool { HiggsfieldCLIBridge().isInstalled }
+    public var isCLIInstalled: Bool { Self.cliBridge().isInstalled }
     public var isOAuthAvailable: Bool { configuration.oauth != nil }
 
     private var client: HiggsfieldClient?
@@ -200,13 +200,16 @@ public final class PanelModel: ObservableObject {
             return StoredTokenProvider(store: tokenStore) { throw HiggsfieldError.unauthorized("Sign in again.") }
         case .higgsfieldCLI:
             if isExtension {
+                // Run the CLI directly when the sandbox allows it; otherwise ask
+                // the container app, which can always run it (and sign in).
                 let scheme = configuration.containerURLScheme
                 let status = configuration.storage.cliStatusFile
-                return StoredTokenProvider(store: tokenStore) {
+                let viaApp = StoredTokenProvider(store: tokenStore) {
                     try await Self.requestCLITokenFromContainerApp(scheme: scheme, store: tokenStore, statusFile: status)
                 }
+                return FallbackTokenProvider(primary: CLITokenProvider(bridge: Self.cliBridge(), store: tokenStore), fallback: viaApp)
             }
-            return CLITokenProvider(bridge: HiggsfieldCLIBridge(), store: tokenStore)
+            return CLITokenProvider(bridge: Self.cliBridge(), store: tokenStore)
         case .manual:
             return StoredTokenProvider(store: tokenStore) { throw HiggsfieldError.unauthorized("The pasted token was rejected or expired.") }
         }
@@ -263,8 +266,13 @@ public final class PanelModel: ObservableObject {
         let tokenStore = configuration.storage.tokenStore()
         do {
             if isExtension {
-                try await Self.requestCLITokenFromContainerApp(scheme: configuration.containerURLScheme, store: tokenStore,
-                                                               statusFile: configuration.storage.cliStatusFile)
+                do {
+                    try await fetchCLIToken(loginIfNeeded: false)
+                } catch {
+                    // Sandbox blocked the CLI, or it needs a browser sign-in: the app handles it.
+                    try await Self.requestCLITokenFromContainerApp(scheme: configuration.containerURLScheme, store: tokenStore,
+                                                                   statusFile: configuration.storage.cliStatusFile)
+                }
             } else {
                 try await fetchCLIToken(loginIfNeeded: true)
             }
@@ -279,9 +287,17 @@ public final class PanelModel: ObservableObject {
         }
     }
 
-    /// Container app only: runs the official CLI and stores its token.
+    /// The official CLI, run with the real home folder so it finds its own
+    /// login (inside the sandbox HOME points at the container).
+    nonisolated static func cliBridge() -> HiggsfieldCLIBridge {
+        var env = ProcessInfo.processInfo.environment
+        env["HOME"] = SharedStorage.realHomeDirectory.path
+        return HiggsfieldCLIBridge(environment: env)
+    }
+
+    /// Runs the official CLI and stores its token.
     private func fetchCLIToken(loginIfNeeded: Bool) async throws {
-        let bridge = HiggsfieldCLIBridge()
+        let bridge = Self.cliBridge()
         let token: String
         do {
             token = try await bridge.accessToken()
@@ -412,7 +428,7 @@ public final class PanelModel: ObservableObject {
     }
 
     /// The sandboxed extension can't run the CLI; it wakes the container app,
-    /// which runs `hf auth token` and writes the token to the shared Keychain.
+    /// which runs `hf auth token` and writes the token to the shared credential store.
     nonisolated static func requestCLITokenFromContainerApp(scheme: String, store: TokenStore, statusFile: URL) async throws {
         // The app stamps every token it fetches with a fresh expiry, so a
         // changed expiry means the request was served. Failures are reported
@@ -949,16 +965,7 @@ public final class PanelModel: ObservableObject {
     // MARK: Helpers
 
     var outputRoot: URL {
-        settings.outputFolder ?? OutputLocation.defaultRoot(home: Self.realHomeDirectory)
-    }
-
-    /// The user's real home folder (inside the sandbox `homeDirectoryForCurrentUser`
-    /// points at the container).
-    static var realHomeDirectory: URL {
-        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
-            return URL(fileURLWithPath: String(cString: dir), isDirectory: true)
-        }
-        return FileManager.default.homeDirectoryForCurrentUser
+        settings.outputFolder ?? OutputLocation.defaultRoot(home: SharedStorage.realHomeDirectory)
     }
 
     static var appVersion: String {

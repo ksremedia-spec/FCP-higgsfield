@@ -88,9 +88,9 @@ public actor OAuthTokenProvider: AccessTokenProvider {
 /// refreshes it itself when it has expired, so tokens are always obtained
 /// through the CLI's own supported command rather than by reading its files.
 ///
-/// Requires permission to launch processes, so it runs in the non-sandboxed
-/// container app; the sandboxed workflow extension receives the token through
-/// the shared token store.
+/// The container app runs it freely; the sandboxed extension runs it directly
+/// when its sandbox exceptions allow, and otherwise asks the container app
+/// (see `FallbackTokenProvider`).
 public actor CLITokenProvider: AccessTokenProvider {
     private let bridge: HiggsfieldCLIBridge
     private let store: TokenStore?
@@ -148,6 +148,28 @@ public actor StoredTokenProvider: AccessTokenProvider {
         }
         guard let tokens = try store.load() else { throw HiggsfieldError.notSignedIn }
         return tokens.accessToken
+    }
+}
+
+/// Tries `primary` (e.g. running the CLI directly) and falls back when it
+/// can't provide a token at all (CLI missing, blocked, or not signed in).
+public struct FallbackTokenProvider: AccessTokenProvider {
+    public let primary: AccessTokenProvider
+    public let fallback: AccessTokenProvider
+
+    public init(primary: AccessTokenProvider, fallback: AccessTokenProvider) {
+        self.primary = primary
+        self.fallback = fallback
+    }
+
+    public func accessToken(forceRefresh: Bool) async throws -> String {
+        do {
+            return try await primary.accessToken(forceRefresh: forceRefresh)
+        } catch HiggsfieldError.cliUnavailable {
+            return try await fallback.accessToken(forceRefresh: forceRefresh)
+        } catch HiggsfieldError.notSignedIn {
+            return try await fallback.accessToken(forceRefresh: forceRefresh)
+        }
     }
 }
 

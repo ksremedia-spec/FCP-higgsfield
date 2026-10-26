@@ -5,9 +5,13 @@ import Security
 
 /// Locations shared by the container app and the workflow extension.
 ///
-/// Info.plist keys (set by App/project.yml):
+/// By default (personal build, no App Group) both processes use
+/// `~/Library/Application Support/HiggsfieldFCP`; the sandboxed extension has
+/// a read-write exception for exactly that folder. Optional Info.plist keys
+/// (set via App/project.yml) switch to stronger sharing when your signing
+/// team provisions them:
 /// - `HiggsfieldAppGroup`: App Group identifier for the shared container.
-/// - `HiggsfieldKeychainGroup`: Keychain access group for shared credentials.
+/// - `HiggsfieldKeychainGroup`: Keychain access group for credentials.
 public struct SharedStorage: Sendable {
     public let appGroup: String?
     public let keychainGroup: String?
@@ -24,9 +28,18 @@ public struct SharedStorage: Sendable {
         if let appGroup, let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) {
             root = url
         } else {
-            root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("HiggsfieldFCP", isDirectory: true)
+            root = Self.realHomeDirectory
+                .appendingPathComponent("Library/Application Support/HiggsfieldFCP", isDirectory: true)
         }
+    }
+
+    /// The user's real home folder. Inside the sandbox `NSHomeDirectory()` and
+    /// `homeDirectoryForCurrentUser` point at the extension's container.
+    public static var realHomeDirectory: URL {
+        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
+            return URL(fileURLWithPath: String(cString: dir), isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
     }
 
     /// Explicit locations (tests, previews).
@@ -55,8 +68,13 @@ public struct SharedStorage: Sendable {
     /// Outcome of the last CLI token request served by the container app.
     public var cliStatusFile: URL { root.appendingPathComponent("cli-status.json") }
 
-    public func tokenStore() -> KeychainTokenStore {
-        KeychainTokenStore(service: "HiggsfieldFCP.credentials", accessGroup: keychainGroup)
+    /// Credentials shared by the app and the extension: the Keychain when a
+    /// shared Keychain group is provisioned, otherwise a private (0600) file in
+    /// the shared folder — the same way the official CLI keeps its login.
+    public func tokenStore() -> TokenStore {
+        let file = FileTokenStore(url: root.appendingPathComponent("credentials.json"))
+        guard let keychainGroup else { return file }
+        return KeychainTokenStore(service: "HiggsfieldFCP.credentials", accessGroup: keychainGroup, fallback: file)
     }
 
     /// Lists media in the Share inbox, newest first.
@@ -72,46 +90,38 @@ public struct SharedStorage: Sendable {
     }
 }
 
-/// Stores credentials as a generic password in the (optionally shared) Keychain.
+/// Stores credentials as a generic password in a shared Keychain group. If
+/// the build lacks that entitlement, `fallback` is used so both processes
+/// still see the same credentials.
 public struct KeychainTokenStore: TokenStore {
     public let service: String
-    public let accessGroup: String?
+    public let accessGroup: String
+    public let fallback: TokenStore
     private let account = "higgsfield-account"
 
-    public init(service: String, accessGroup: String?) {
+    public init(service: String, accessGroup: String, fallback: TokenStore) {
         self.service = service
         self.accessGroup = accessGroup
+        self.fallback = fallback
     }
 
-    private func query(shared: Bool) -> [String: Any] {
-        var q: [String: Any] = [
+    private func query() -> [String: Any] {
+        [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
+            kSecAttrAccessGroup as String: accessGroup,
+            kSecUseDataProtectionKeychain as String: true,
         ]
-        if shared, let accessGroup {
-            q[kSecAttrAccessGroup as String] = accessGroup
-            q[kSecUseDataProtectionKeychain as String] = true
-        }
-        return q
-    }
-
-    /// Runs `body` against the shared access group, falling back to the
-    /// app-private keychain when the build lacks the entitlement (unsigned builds).
-    private func withGroupFallback(_ body: (_ shared: Bool) -> OSStatus) -> OSStatus {
-        let status = body(accessGroup != nil)
-        if status == errSecMissingEntitlement && accessGroup != nil { return body(false) }
-        return status
     }
 
     public func load() throws -> TokenSet? {
+        var q = query()
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
-        let status = withGroupFallback { shared in
-            var q = query(shared: shared)
-            q[kSecReturnData as String] = true
-            q[kSecMatchLimit as String] = kSecMatchLimitOne
-            return SecItemCopyMatching(q as CFDictionary, &result)
-        }
+        let status = SecItemCopyMatching(q as CFDictionary, &result)
+        if status == errSecMissingEntitlement { return try fallback.load() }
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = result as? Data else {
             throw HiggsfieldError.invalidInput("Keychain read failed (\(status)).")
@@ -125,22 +135,20 @@ public struct KeychainTokenStore: TokenStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(tokens)
-        let status = withGroupFallback { shared in
-            let attributes: [String: Any] = [kSecValueData as String: data]
-            var status = SecItemUpdate(query(shared: shared) as CFDictionary, attributes as CFDictionary)
-            if status == errSecItemNotFound {
-                var add = query(shared: shared)
-                add[kSecValueData as String] = data
-                add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-                status = SecItemAdd(add as CFDictionary, nil)
-            }
-            return status
+        var status = SecItemUpdate(query() as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if status == errSecItemNotFound {
+            var add = query()
+            add[kSecValueData as String] = data
+            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            status = SecItemAdd(add as CFDictionary, nil)
         }
+        if status == errSecMissingEntitlement { return try fallback.save(tokens) }
         guard status == errSecSuccess else { throw HiggsfieldError.invalidInput("Keychain write failed (\(status)).") }
     }
 
     public func clear() throws {
-        let status = withGroupFallback { shared in SecItemDelete(query(shared: shared) as CFDictionary) }
+        let status = SecItemDelete(query() as CFDictionary)
+        if status == errSecMissingEntitlement { return try fallback.clear() }
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw HiggsfieldError.invalidInput("Keychain delete failed (\(status)).")
         }

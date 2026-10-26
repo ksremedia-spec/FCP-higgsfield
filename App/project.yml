@@ -21,9 +21,11 @@ settings:
     # built-in "Sign in with Higgsfield". Empty = CLI session / token only.
     HIGGSFIELD_OAUTH_CLIENT_ID: ""
     HIGGSFIELD_OAUTH_REDIRECT_URI: "http://127.0.0.1:8765/callback"
-    # macOS App Group ids must start with the Team ID.
-    HIGGSFIELD_APP_GROUP: "$(TeamIdentifierPrefix)com.ksremedia.HiggsfieldFCP"
-    HIGGSFIELD_KEYCHAIN_GROUP: "$(AppIdentifierPrefix)com.ksremedia.HiggsfieldFCP.shared"
+    # Optional, for signing teams that provision them (see README, "Optional:
+    # App Group and Keychain sharing"). Empty = personal setup: the app and the
+    # extension share ~/Library/Application Support/HiggsfieldFCP instead.
+    HIGGSFIELD_APP_GROUP: ""
+    HIGGSFIELD_KEYCHAIN_GROUP: ""
 
 packages:
   HiggsfieldFCP:
@@ -56,7 +58,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.video
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
-        NSHumanReadableCopyright: "Uses the Higgsfield API. Higgsfield is a trademark of its owner."
+        NSHumanReadableCopyright: "Personal Final Cut Pro workflow tool for the Higgsfield API."
         CFBundleURLTypes:
           - CFBundleURLName: com.ksremedia.HiggsfieldFCP
             CFBundleURLSchemes: [higgsfieldfcp]
@@ -72,10 +74,9 @@ targets:
         HiggsfieldKeychainGroup: $(HIGGSFIELD_KEYCHAIN_GROUP)
     entitlements:
       path: HiggsfieldFCP/HiggsfieldFCP.entitlements
-      properties:
-        # Not sandboxed: it launches the official Higgsfield CLI (`hf auth token`).
-        com.apple.security.application-groups: [$(HIGGSFIELD_APP_GROUP)]
-        keychain-access-groups: [$(HIGGSFIELD_KEYCHAIN_GROUP)]
+      # Not sandboxed: it launches the official Higgsfield CLI (`hf auth token`)
+      # and owns ~/Library/Application Support/HiggsfieldFCP. No entitlements needed.
+      properties: {}
 
   HiggsfieldWorkflowExtension:
     type: app-extension
@@ -122,8 +123,6 @@ targets:
         com.apple.security.network.client: true
         # Loopback redirect for OAuth sign-in.
         com.apple.security.network.server: true
-        com.apple.security.application-groups: [$(HIGGSFIELD_APP_GROUP)]
-        keychain-access-groups: [$(HIGGSFIELD_KEYCHAIN_GROUP)]
         com.apple.security.files.user-selected.read-write: true
         com.apple.security.files.bookmarks.app-scope: true
         # Results are written to ~/Movies/Higgsfield so Final Cut Pro can import them.
@@ -131,10 +130,15 @@ targets:
         com.apple.security.assets.pictures.read-only: true
         # Source media referenced by FCPXML from the FCP browser lives on
         # arbitrary volumes; the drag carries paths, not sandbox extensions.
-        # (Developer ID distribution; an App Store build would rely on the
-        # "Allow…" folder prompt instead.)
-        com.apple.security.temporary-exception.files.absolute-path.read-only: [/Volumes/]
+        # /opt/homebrew and /usr/local hold the official Higgsfield CLI.
+        com.apple.security.temporary-exception.files.absolute-path.read-only: [/Volumes/, /opt/homebrew/, /usr/local/]
         com.apple.security.temporary-exception.files.home-relative-path.read-only: [/]
+        # Shared with the container app, plus the official CLI's own login
+        # (read and refreshed when the extension runs `hf auth token` itself).
+        com.apple.security.temporary-exception.files.home-relative-path.read-write:
+          - /Library/Application Support/HiggsfieldFCP/
+          - /.config/higgsfield/
+          - /Library/Application Support/higgsfield/
     postBuildScripts:
       - name: Embed ProExtensionHost.framework (when the Workflow Extension SDK is configured)
         script: |

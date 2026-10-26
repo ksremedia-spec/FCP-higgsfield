@@ -24,24 +24,40 @@ The code is complete for all seven tools. It is built and tested in CI on macOS 
 
 It has **not yet been run against the live Higgsfield API through this app, or inside Final Cut Pro**. The build environment had neither network access to Higgsfield nor a Mac. [docs/VALIDATION.md](docs/VALIDATION.md) lists exactly what is verified and gives a checklist plus an opt-in CI job to close the remaining gaps.
 
-## Build
+## Build and install (personal setup)
 
-Requirements: macOS 13+, Xcode 15+, [XcodeGen](https://github.com/yonaskolb/XcodeGen), Final Cut Pro 10.6+.
+Requirements: macOS 13+, Xcode 15+, [XcodeGen](https://github.com/yonaskolb/XcodeGen), Final Cut Pro 10.6+, and a free Apple ID in Xcode. No paid developer account is needed.
 
 ```sh
 brew install xcodegen
-scripts/configure-workflow-sdk.sh        # optional: links Apple's Workflow Extension SDK if installed
+scripts/configure-workflow-sdk.sh        # optional: enables live playhead/range if Apple's Workflow Extension SDK is installed
 xcodegen generate --spec App/project.yml
-open App/HiggsfieldFCP.xcodeproj         # set your Team, build "HiggsfieldFCP"
+open App/HiggsfieldFCP.xcodeproj
 ```
 
-Copy *Higgsfield for Final Cut Pro.app* to `/Applications` and launch it once to register the extension.
+1. In Xcode, select each of the two targets (**HiggsfieldFCP** and **HiggsfieldWorkflowExtension**). Under **Signing & Capabilities**, pick your Apple ID; *Personal Team* is fine. No extra capabilities are needed.
+2. Build the **HiggsfieldFCP** scheme (⌘B), choose **Product ▸ Show Build Folder in Finder**, and copy *Higgsfield for Final Cut Pro.app* to `/Applications`.
+3. Launch it once. That registers the extension with Final Cut Pro.
 
 ### Signing in
 
-- **Higgsfield CLI session.** Works today. Run `npm install -g @higgsfield/cli` once; the panel uses `hf auth token` (and `hf auth login` when needed).
-- **Sign in with Higgsfield.** Built-in OAuth. It needs a client ID issued by Higgsfield: set `HIGGSFIELD_OAUTH_CLIENT_ID` in `App/project.yml`.
-- **Access token.** Paste one.
+Install the official Higgsfield CLI once:
+
+```sh
+npm install -g @higgsfield/cli
+```
+
+Then click **Use Higgsfield CLI Session** in the panel. If the CLI isn't signed in yet, it opens Higgsfield's sign-in page in your browser. After that the panel reuses the CLI's login, and the CLI renews it as needed.
+
+You can also paste an access token from `hf auth token`. A built-in "Sign in with Higgsfield" button exists in the code, but it needs an OAuth client ID that only Higgsfield can issue, so it stays hidden.
+
+### Where things live
+
+| What | Where |
+|---|---|
+| Generated and processed media | `~/Movies/Higgsfield/<date>/` (Final Cut Pro imports from here) |
+| Job history, settings, the sign-in token | `~/Library/Application Support/HiggsfieldFCP/` (the token is a private file, readable only by you, the same way the CLI keeps its own login) |
+| Renders from **File ▸ Share ▸ Higgsfield** | the `Inbox` folder inside the above |
 
 ### Share destination (rendered timelines)
 
@@ -52,7 +68,7 @@ In Final Cut Pro, go to **File ▸ Share ▸ Add Destination**, add **Export Fil
 | Path | Contents |
 |---|---|
 | `Sources/HiggsfieldKit` | Foundation-only core: Higgsfield account API client, auth (OAuth PKCE, CLI bridge), JSON-schema model settings, the seven operations, job runner, FCPXML parse/build, timeline resolver |
-| `Sources/HiggsfieldPanel` | SwiftUI panel, AVFoundation media helpers, Keychain, FCP host bridge, drag and drop, FCP import |
+| `Sources/HiggsfieldPanel` | SwiftUI panel, AVFoundation media helpers, credential storage, FCP host bridge, drag and drop, FCP import |
 | `App/` | XcodeGen spec, container app, Final Cut Pro workflow extension |
 | `Sources/hfcp` | Command-line harness for validating against the live API |
 | `Tests/` | Contract, operation, job, FCPXML and panel tests |
@@ -63,4 +79,4 @@ In Final Cut Pro, go to **File ▸ Share ▸ Add Destination**, add **Export Fil
 
 - Results are saved to `~/Movies/Higgsfield/<date>/`, where Final Cut Pro can import them.
 - Higgsfield's account API has no cancel endpoint. *Stop Tracking* stops waiting locally; the job still completes and is billed.
-- "Higgsfield" is a trademark of its owner. Distributing this app under that name or with Higgsfield branding requires Higgsfield's permission.
+- Optional, if you ever sign with a paid developer team: set `HIGGSFIELD_APP_GROUP` and `HIGGSFIELD_KEYCHAIN_GROUP` in `App/project.yml` and add the matching App Group and Keychain Sharing entitlements to both targets. The panel then uses them instead of the shared folder. This isn't needed for personal use.

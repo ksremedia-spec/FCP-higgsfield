@@ -190,7 +190,7 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 
 **FCP edition:**
 - **Sign in** in one of three ways:
-  - **Use Higgsfield CLI session.** The app runs the official `hf auth token`, which refreshes itself. If not logged in, `hf auth login` opens Higgsfield's own browser sign-in. The sandboxed extension asks the container app for the token via `higgsfieldfcp://cli-token` and receives it through the shared Keychain.
+  - **Use Higgsfield CLI session.** The panel runs the official `hf auth token`, which refreshes itself. If not logged in, `hf auth login` opens Higgsfield's own browser sign-in. The extension runs the CLI itself where its sandbox allows. Otherwise it asks the container app (`higgsfieldfcp://cli-token`), which stores the token in the shared folder.
   - **Sign in with Higgsfield.** The app's own OAuth 2.0 + PKCE flow against `clerk.higgsfield.ai` with a loopback redirect, the same flow as the CLI. It is enabled when the build has a Higgsfield-issued `HiggsfieldOAuthClientID`.
   - **Paste access token.**
 - Header shows the **credit balance** and plan; workspace switcher; **cost preflight** on every change, displayed on the Generate button. Submission is disabled when the estimate exceeds the balance. The balance refreshes after each job.
@@ -201,7 +201,7 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 - 401 → single refresh → retry.
 - **Live:** `balance` → 854.14 credits, plan "plus", and reframe cost preflights, via the official MCP.
 
-**Gap vs Premiere:** built-in one-click sign-in needs an OAuth client registered with Higgsfield. The official CLI's client ID is deliberately **not** reused. Until Higgsfield issues one, sign-in goes through the official CLI, a one-time `npm install -g @higgsfield/cli`.
+**Difference from Premiere:** the plugin has its own sign-in button. Here, sign-in goes through the official Higgsfield CLI (one-time `npm install -g @higgsfield/cli`). A built-in button would need an OAuth client that only Higgsfield can issue; the CLI's own client ID is deliberately not reused.
 
 ## 11. Returning generated or processed media to the project
 
@@ -233,7 +233,6 @@ Clips carry prompt, model, settings and job ID in Notes, the keywords "Higgsfiel
 
 ## Things the Premiere plugin may do that this edition does not
 
-- **Install via one installer.** This edition is an app plus extension built from source; signing and notarisation need the developer's team.
 - **After Effects variant.** Out of scope.
 - **8K upscale, "upscale on export".** See #6.
 - **Insert or replace on the timeline programmatically.** Not possible in FCP; see #3 and #11.

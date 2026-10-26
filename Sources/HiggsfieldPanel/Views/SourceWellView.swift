@@ -22,7 +22,14 @@ struct SourceWellView: View {
                     empty
                 }
                 SourceDropTarget(onDrop: model.handleDrop, isTargeted: $isTargeted)
-                    .allowsHitTesting(true)
+                // Controls must sit above the AppKit drop view to receive clicks.
+                if source != nil {
+                    Button { model.setSource(nil) } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.secondaryText)
+                        .help("Remove source")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                }
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
@@ -79,10 +86,7 @@ struct SourceWellView: View {
                 Chip(text: originLabel(source.origin), systemImage: originIcon(source.origin))
             }
             Spacer(minLength: 0)
-            Button { model.setSource(nil) } label: { Image(systemName: "xmark.circle.fill") }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.secondaryText)
-                .help("Remove source")
+            Color.clear.frame(width: 18)
         }
     }
 
@@ -204,6 +208,8 @@ struct SourceWellView: View {
     private func loadThumbnail() async {
         guard let source else { thumbnail = nil; return }
         let image = await FrameGrabber.image(from: source.fileURL, at: source.inPoint ?? 0, maximumSize: CGSize(width: 320, height: 180))
+        // A newer request (trim moved, source changed) supersedes this one.
+        guard !Task.isCancelled else { return }
         thumbnail = image.map { NSImage(cgImage: $0, size: .zero) }
     }
 }

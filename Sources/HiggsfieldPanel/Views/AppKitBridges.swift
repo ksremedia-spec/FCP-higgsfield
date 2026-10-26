@@ -23,24 +23,26 @@ struct SourceDropTarget: NSViewRepresentable {
 struct FCPXMLDragSource: NSViewRepresentable {
     var makeProvider: () -> FCPXMLDragProvider?
     var image: NSImage?
+    var onDoubleClick: (() -> Void)?
 
     func makeNSView(context: Context) -> FCPXMLDragSourceView {
         let view = FCPXMLDragSourceView(frame: .zero)
-        view.makeProvider = makeProvider
-        view.dragImage = image
+        updateNSView(view, context: context)
         return view
     }
 
     func updateNSView(_ view: FCPXMLDragSourceView, context: Context) {
         view.makeProvider = makeProvider
         view.dragImage = image
+        view.onDoubleClick = onDoubleClick
     }
 }
 
 extension View {
     /// Overlays an invisible AppKit drag source that starts an FCPXML drag.
-    func fcpxmlDragSource(image: NSImage?, _ makeProvider: @escaping () -> FCPXMLDragProvider?) -> some View {
-        overlay(FCPXMLDragSource(makeProvider: makeProvider, image: image))
+    func fcpxmlDragSource(image: NSImage?, onDoubleClick: (() -> Void)? = nil,
+                          _ makeProvider: @escaping () -> FCPXMLDragProvider?) -> some View {
+        overlay(FCPXMLDragSource(makeProvider: makeProvider, image: image, onDoubleClick: onDoubleClick))
     }
 }
 #endif

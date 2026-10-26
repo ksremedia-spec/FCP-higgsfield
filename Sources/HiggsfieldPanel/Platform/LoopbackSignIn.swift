@@ -29,48 +29,59 @@ public final class LoopbackSignIn {
         defer { listener.cancel() }
 
         let authorizeURL = configuration.authorizationURL(pkce: pkce, state: state)
-        return try await withThrowingTaskGroup(of: String.self) { group in
-            group.addTask {
-                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-                    let once = ResumeOnce()
-                    listener.newConnectionHandler = { connection in
-                        connection.start(queue: .main)
-                        connection.receive(minimumIncompleteLength: 1, maximumLength: 16_384) { data, _, _, _ in
-                            let request = data.map { String(decoding: $0, as: UTF8.self) } ?? ""
-                            let target = request.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
-                            let callback = URL(string: "http://\(host):\(port.rawValue)\(target)")
-                            let result = Result { try OAuthConfiguration.authorizationCode(from: callback ?? redirect, expectedState: state) }
-                            let ok = (try? result.get()) != nil
-                            let body = ok
-                                ? "<h2>Signed in to Higgsfield.</h2><p>You can close this tab and return to Final Cut Pro.</p>"
-                                : "<h2>Sign-in didn’t complete.</h2><p>Return to Final Cut Pro and try again.</p>"
-                            let html = "<!doctype html><meta charset=utf-8><body style=\"font:15px -apple-system;padding:40px;background:#111;color:#eee\">\(body)</body>"
-                            let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(html.utf8.count)\r\nConnection: close\r\n\r\n\(html)"
-                            connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })
-                            guard target.hasPrefix(redirect.path.isEmpty ? "/" : redirect.path), once.claim() else { return }
-                            continuation.resume(with: result)
-                        }
+        let once = ResumeOnce()
+        let timedOut = ResumeOnce()
+        // Cancelling the listener (timeout or task cancellation) moves it to
+        // `.cancelled`, which resumes the continuation, so the wait always ends.
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+            if timedOut.claim() { listener.cancel() }
+        }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+                listener.newConnectionHandler = { connection in
+                    connection.start(queue: .main)
+                    connection.receive(minimumIncompleteLength: 1, maximumLength: 16_384) { data, _, _, _ in
+                        let request = data.map { String(decoding: $0, as: UTF8.self) } ?? ""
+                        let target = request.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
+                        let callback = URL(string: "http://\(host):\(port.rawValue)\(target)")
+                        let result = Result { try OAuthConfiguration.authorizationCode(from: callback ?? redirect, expectedState: state) }
+                        let ok = (try? result.get()) != nil
+                        let body = ok
+                            ? "<h2>Signed in to Higgsfield.</h2><p>You can close this tab and return to Final Cut Pro.</p>"
+                            : "<h2>Sign-in didn’t complete.</h2><p>Return to Final Cut Pro and try again.</p>"
+                        let html = "<!doctype html><meta charset=utf-8><body style=\"font:15px -apple-system;padding:40px;background:#111;color:#eee\">\(body)</body>"
+                        let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(html.utf8.count)\r\nConnection: close\r\n\r\n\(html)"
+                        connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })
+                        guard target.hasPrefix(redirect.path.isEmpty ? "/" : redirect.path), once.claim() else { return }
+                        continuation.resume(with: result)
                     }
-                    listener.stateUpdateHandler = { state in
-                        if case .failed(let error) = state, once.claim() {
-                            continuation.resume(throwing: HiggsfieldError.network("Couldn’t listen for the sign-in redirect: \(error)"))
-                        } else if case .ready = state {
-                            DispatchQueue.main.async { NSWorkspace.shared.open(authorizeURL) }
-                        }
-                    }
-                    listener.start(queue: .main)
                 }
+                listener.stateUpdateHandler = { state in
+                    switch state {
+                    case .ready:
+                        DispatchQueue.main.async { NSWorkspace.shared.open(authorizeURL) }
+                    case .failed(let error):
+                        if once.claim() {
+                            continuation.resume(throwing: HiggsfieldError.network("Couldn’t listen for the sign-in redirect: \(error)"))
+                        }
+                    case .cancelled:
+                        if once.claim() {
+                            continuation.resume(throwing: timedOut.claim()
+                                ? CancellationError()  // cancelled by the user before the timeout fired
+                                : HiggsfieldError.unauthorized("Sign-in timed out."))
+                        }
+                    default:
+                        break
+                    }
+                }
+                listener.start(queue: .main)
             }
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                throw HiggsfieldError.unauthorized("Sign-in timed out.")
-            }
-            let code = try await group.next()!
-            group.cancelAll()
-            return code
+        } onCancel: {
+            listener.cancel()
         }
     }
 }
+
 /// Ensures the continuation is resumed exactly once across Network callbacks.
 private final class ResumeOnce: @unchecked Sendable {
     private let lock = NSLock()

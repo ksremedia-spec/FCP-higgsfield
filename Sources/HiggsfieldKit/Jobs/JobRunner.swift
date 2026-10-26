@@ -9,7 +9,7 @@ import FoundationNetworking
 public actor JobRunner {
     public typealias UpdateHandler = @Sendable (JobRecord) -> Void
 
-    private let client: HiggsfieldClient
+    private var client: HiggsfieldClient
     private let store: JobStore
     private let transport: HTTPTransport
     private let output: OutputLocation
@@ -32,6 +32,13 @@ public actor JobRunner {
         self.output = output
         self.trimmer = trimmer
         self.sleeper = sleeper
+    }
+
+    /// Swaps credentials/workspace without disturbing in-flight work. The panel
+    /// keeps a single runner for its lifetime and only replaces the client when
+    /// the user reconnects, so uploads and polls are never duplicated.
+    public func setClient(_ client: HiggsfieldClient) {
+        self.client = client
     }
 
     public func setUpdateHandler(_ handler: UpdateHandler?) {
@@ -79,11 +86,15 @@ public actor JobRunner {
     }
 
     /// Resumes polling for records that were in flight when the panel closed.
-    public func resumeActiveJobs() async {
+    /// `markInterrupted` should be true only for the first resume after launch:
+    /// records without a server id were cut off before submission and nothing
+    /// exists server-side. Later calls must not touch them, because they may be
+    /// uploads still running in this process.
+    public func resumeActiveJobs(markInterrupted: Bool = true) async {
         for record in await store.all() where record.phase.isActive {
             if record.remoteID != nil {
-                beginPolling(record)
-            } else {
+                if pollTasks[record.id] == nil { beginPolling(record) }
+            } else if markInterrupted {
                 // Interrupted before submission: nothing was created server-side.
                 var r = record
                 r.phase = .failed

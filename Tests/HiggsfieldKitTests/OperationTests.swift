@@ -316,6 +316,17 @@ final class JobRunnerTests: XCTestCase {
         XCTAssertEqual(all.first?.phase, .failed)
     }
 
+    func testLaterResumeLeavesInFlightUploadsAlone() async throws {
+        let dir = try temporaryFile(named: "x").deletingLastPathComponent()
+        let store = JobStore(url: dir.appendingPathComponent("jobs.json"))
+        let uploading = JobRecord(operation: .reframe, jobType: "reframe", modelName: "Reframe", output: .video, phase: .preparing)
+        await store.upsert(uploading)
+        let runner = JobRunner(client: makeClient(MockTransport()), store: store, transport: MockTransport(), output: OutputLocation(root: dir), sleeper: { _ in })
+        await runner.resumeActiveJobs(markInterrupted: false)
+        let phase = await store.record(id: uploading.id)?.phase
+        XCTAssertEqual(phase, .preparing, "a reconnect must not fail an upload that is still running")
+    }
+
     func testStopAllHaltsPolling() async throws {
         let t = MockTransport()
         t.on("GET", "/jobs/job-9", json: #"{"id":"job-9","status":"in_progress"}"#)

@@ -44,9 +44,16 @@ public struct SharedStorage: Sendable {
     /// Files received from Final Cut Pro's File ▸ Share (“Open with” the container app).
     public var inbox: URL { root.appendingPathComponent("Inbox", isDirectory: true) }
     public var workDirectory: URL { FileManager.default.temporaryDirectory.appendingPathComponent("HiggsfieldFCP", isDirectory: true) }
-    public var settingsFile: URL { root.appendingPathComponent("settings.json") }
+    /// Per-context so the app and the extension never overwrite each other's choices.
+    public func settingsFile(extension isExtension: Bool) -> URL {
+        root.appendingPathComponent(isExtension ? "settings-extension.json" : "settings-app.json")
+    }
     /// Tool drafts, restored when Final Cut Pro reopens the extension.
-    public var draftsFile: URL { root.appendingPathComponent("drafts.json") }
+    public func draftsFile(extension isExtension: Bool) -> URL {
+        root.appendingPathComponent(isExtension ? "drafts-extension.json" : "drafts-app.json")
+    }
+    /// Outcome of the last CLI token request served by the container app.
+    public var cliStatusFile: URL { root.appendingPathComponent("cli-status.json") }
 
     public func tokenStore() -> KeychainTokenStore {
         KeychainTokenStore(service: "HiggsfieldFCP.credentials", accessGroup: keychainGroup)
@@ -140,6 +147,23 @@ public struct KeychainTokenStore: TokenStore {
     }
 }
 
+/// Outcome of a CLI token request, shared from the app to the extension.
+struct CLIStatus: Codable {
+    var ok: Bool
+    var message: String?
+    var date = Date()
+
+    func write(to url: URL) {
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? JSONEncoder().encode(self).write(to: url, options: .atomic)
+    }
+
+    static func read(from url: URL) -> CLIStatus? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(CLIStatus.self, from: data)
+    }
+}
+
 /// Persisted panel preferences (selected workspace, last tool, output folder).
 public struct PanelSettings: Codable, Equatable, Sendable {
     public var workspaceID: String?
@@ -149,6 +173,24 @@ public struct PanelSettings: Codable, Equatable, Sendable {
     public var lastJobTypes: [String: String] = [:]
     /// Import finished results into the open library automatically (nil = default for the context).
     public var autoImport: Bool?
+    /// Security-scoped bookmarks for folders the user allowed the extension to read.
+    public var securityBookmarks: [Data] = []
+
+    enum CodingKeys: String, CodingKey {
+        case workspaceID, lastOperation, outputFolder, eventName, lastJobTypes, autoImport, securityBookmarks
+    }
+
+    /// Tolerates missing keys so older settings files keep loading.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        workspaceID = try c.decodeIfPresent(String.self, forKey: .workspaceID)
+        lastOperation = try c.decodeIfPresent(OperationKind.self, forKey: .lastOperation) ?? .generateVideo
+        outputFolder = try c.decodeIfPresent(URL.self, forKey: .outputFolder)
+        eventName = try c.decodeIfPresent(String.self, forKey: .eventName) ?? "Higgsfield AI"
+        lastJobTypes = try c.decodeIfPresent([String: String].self, forKey: .lastJobTypes) ?? [:]
+        autoImport = try c.decodeIfPresent(Bool.self, forKey: .autoImport)
+        securityBookmarks = try c.decodeIfPresent([Data].self, forKey: .securityBookmarks) ?? []
+    }
 
     public init() {}
 

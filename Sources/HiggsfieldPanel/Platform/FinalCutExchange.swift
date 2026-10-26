@@ -81,9 +81,16 @@ final class FCPXMLDragProvider: NSObject, NSPasteboardItemDataProvider {
 final class FCPXMLDragSourceView: NSView, NSDraggingSource {
     var makeProvider: (() -> FCPXMLDragProvider?)?
     var dragImage: NSImage?
+    /// The view sits over the thumbnail, so it forwards double-clicks (preview).
+    var onDoubleClick: (() -> Void)?
     private var mouseDownEvent: NSEvent?
 
     override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            mouseDownEvent = nil
+            onDoubleClick?()
+            return
+        }
         mouseDownEvent = event
     }
 

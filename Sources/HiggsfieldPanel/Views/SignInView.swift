@@ -23,6 +23,8 @@ struct SignInView: View {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         Text(message).font(.system(size: 12))
+                        Spacer(minLength: 0)
+                        Button("Cancel", action: model.cancelSignIn).controlSize(.small)
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -31,7 +33,7 @@ struct SignInView: View {
 
                 if model.isOAuthAvailable {
                     Button {
-                        Task { await model.signInWithHiggsfield() }
+                        model.startSignIn(.higgsfield)
                     } label: {
                         Label("Sign in with Higgsfield", systemImage: "person.badge.key")
                     }
@@ -45,7 +47,7 @@ struct SignInView: View {
                         .foregroundStyle(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                     Button {
-                        Task { await model.signInWithCLI() }
+                        model.startSignIn(.cli)
                     } label: {
                         Label("Use Higgsfield CLI Session", systemImage: "terminal")
                             .frame(maxWidth: .infinity)
@@ -66,7 +68,7 @@ struct SignInView: View {
                             .foregroundStyle(Theme.secondaryText)
                         SecureField("Access token", text: $token)
                             .textFieldStyle(.roundedBorder)
-                        Button("Connect") { Task { await model.signIn(withAccessToken: token); token = "" } }
+                        Button("Connect") { model.startSignIn(.token(token)); token = "" }
                             .disabled(token.trimmingCharacters(in: .whitespaces).isEmpty || isBusy)
                     }
                     .padding(.top, 6)

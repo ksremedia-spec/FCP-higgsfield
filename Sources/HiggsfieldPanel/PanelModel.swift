@@ -105,15 +105,30 @@ public final class PanelModel: ObservableObject {
     private let probe = AVMediaProbe()
     private var draftSaveTask: Task<Void, Never>?
     private var notificationObservers: [NSObjectProtocol] = []
+    /// Incremented per connect; results of superseded connects are ignored.
+    private var connectGeneration = 0
+    /// The "interrupted before submission" sweep runs once per launch only.
+    private var didSweepInterrupted = false
+    private var signInTask: Task<Void, Never>?
+    private var cliRefreshTask: Task<Void, Never>?
 
     public init(configuration: Configuration) {
         self.configuration = configuration
         self.store = JobStore(url: configuration.storage.jobsFile(extension: configuration.context == .workflowExtension))
-        let settings = PanelSettings.load(from: configuration.storage.settingsFile)
+        let isExt = configuration.context == .workflowExtension
+        let settings = PanelSettings.load(from: configuration.storage.settingsFile(extension: isExt))
         self.settings = settings
         self.operation = settings.lastOperation
         self.autoImport = settings.autoImport ?? (configuration.context == .workflowExtension)
-        self.drafts = Self.loadDrafts(from: configuration.storage.draftsFile) ?? [:]
+        var restored = Self.loadDrafts(from: configuration.storage.draftsFile(extension: isExt)) ?? [:]
+        // Drawings live in a temp folder that may have been emptied.
+        for (op, d) in restored {
+            var d = d
+            if let f = d.sketchFile, !FileManager.default.fileExists(atPath: f.path) { d.sketchFile = nil }
+            if let f = d.maskFile, !FileManager.default.fileExists(atPath: f.path) { d.maskFile = nil }
+            restored[op] = d
+        }
+        self.drafts = restored
         for op in OperationKind.allCases where drafts[op] == nil {
             drafts[op] = makeDraft(op, jobType: settings.lastJobTypes[op.rawValue])
         }
@@ -122,7 +137,8 @@ public final class PanelModel: ObservableObject {
     // MARK: Lifecycle
 
     public func start() {
-        Task { await restoreSession() }
+        restoreSecurityScopedAccess()
+        Task { await restoreSession(reconnect: false) }
         Task {
             jobs = await store.all()
             // Drag and import need each result's duration/size; probe finished files.
@@ -144,8 +160,9 @@ public final class PanelModel: ObservableObject {
         let me = Self.processTag
         notificationObservers.append(center.addObserver(forName: .higgsfieldSessionChanged, object: nil, queue: .main) { [weak self] note in
             guard (note.object as? String) != me else { return }
-            Task { @MainActor in await self?.restoreSession() }
+            Task { @MainActor in await self?.restoreSession(reconnect: true) }
         })
+        Task { await refreshSourceAccess(draft.source) }
     }
 
     public func stop() {
@@ -159,7 +176,14 @@ public final class PanelModel: ObservableObject {
 
     // MARK: Authentication
 
-    private func restoreSession() async {
+    /// `reconnect: false` keeps an existing session (the extension window was
+    /// just hidden and shown again); `true` rebuilds it because the other
+    /// process changed the credentials.
+    private func restoreSession(reconnect: Bool) async {
+        if !reconnect, case .signedIn = authState, client != nil {
+            await refreshBalance()
+            return
+        }
         let tokenStore = configuration.storage.tokenStore()
         guard let tokens = try? tokenStore.load() else {
             authState = .signedOut
@@ -177,7 +201,10 @@ public final class PanelModel: ObservableObject {
         case .higgsfieldCLI:
             if isExtension {
                 let scheme = configuration.containerURLScheme
-                return StoredTokenProvider(store: tokenStore) { try await Self.requestCLITokenFromContainerApp(scheme: scheme, store: tokenStore) }
+                let status = configuration.storage.cliStatusFile
+                return StoredTokenProvider(store: tokenStore) {
+                    try await Self.requestCLITokenFromContainerApp(scheme: scheme, store: tokenStore, statusFile: status)
+                }
             }
             return CLITokenProvider(bridge: HiggsfieldCLIBridge(), store: tokenStore)
         case .manual:
@@ -185,58 +212,115 @@ public final class PanelModel: ObservableObject {
         }
     }
 
+    public enum SignInMethod {
+        case higgsfield
+        case cli
+        case token(String)
+    }
+
+    /// Starts a sign-in that the user can cancel from the panel.
+    public func startSignIn(_ method: SignInMethod) {
+        signInTask?.cancel()
+        signInTask = Task {
+            switch method {
+            case .higgsfield: await signInWithHiggsfield()
+            case .cli: await signInWithCLI()
+            case .token(let t): await signIn(withAccessToken: t)
+            }
+        }
+    }
+
+    public func cancelSignIn() {
+        signInTask?.cancel()
+        signInTask = nil
+        if case .signingIn = authState { authState = .signedOut }
+    }
+
     /// Sign in with this app's own OAuth client (requires `HiggsfieldOAuthClientID`).
-    public func signInWithHiggsfield() async {
+    func signInWithHiggsfield() async {
         guard let oauth = configuration.oauth else { return }
         authState = .signingIn("Waiting for Higgsfield sign-in in your browser…")
         do {
             let pkce = PKCEPair.generate()
             let state = OAuthConfiguration.randomState()
             let code = try await LoopbackSignIn(configuration: oauth).authorize(pkce: pkce, state: state)
+            try Task.checkCancellation()
             let provider = OAuthTokenProvider(configuration: oauth, store: configuration.storage.tokenStore())
             _ = try await provider.completeSignIn(code: code, pkce: pkce)
             await connect(provider: provider, source: .oauth)
-            notifySessionChanged()
+            notifySessionChangedIfSignedIn()
+        } catch is CancellationError {
+            return
         } catch {
-            authState = .signedOut
-            show(error)
+            if case .signingIn = authState { authState = .signedOut }
+            if !Task.isCancelled { show(error) }
         }
     }
 
     /// Reuse the official Higgsfield CLI session (`hf auth login` / `hf auth token`).
-    public func signInWithCLI() async {
+    func signInWithCLI() async {
         authState = .signingIn("Connecting to your Higgsfield CLI session…")
         let tokenStore = configuration.storage.tokenStore()
         do {
             if isExtension {
-                try await Self.requestCLITokenFromContainerApp(scheme: configuration.containerURLScheme, store: tokenStore)
+                try await Self.requestCLITokenFromContainerApp(scheme: configuration.containerURLScheme, store: tokenStore,
+                                                               statusFile: configuration.storage.cliStatusFile)
             } else {
-                let bridge = HiggsfieldCLIBridge()
-                let token: String
-                do {
-                    token = try await bridge.accessToken()
-                } catch HiggsfieldError.notSignedIn {
-                    authState = .signingIn("Finish signing in to Higgsfield in your browser…")
-                    try await bridge.login()
-                    token = try await bridge.accessToken()
-                }
-                try tokenStore.save(TokenSet(accessToken: token, expiresAt: Date().addingTimeInterval(CLITokenProvider.defaultMaxAge), source: .higgsfieldCLI))
+                try await fetchCLIToken(loginIfNeeded: true)
             }
+            try Task.checkCancellation()
             await connect(provider: provider(for: .higgsfieldCLI), source: .higgsfieldCLI)
-            notifySessionChanged()
+            notifySessionChangedIfSignedIn()
+        } catch is CancellationError {
+            return
         } catch {
-            authState = .signedOut
-            show(error)
+            if case .signingIn = authState { authState = .signedOut }
+            if !Task.isCancelled { show(error) }
         }
     }
 
-    public func signIn(withAccessToken token: String) async {
+    /// Container app only: runs the official CLI and stores its token.
+    private func fetchCLIToken(loginIfNeeded: Bool) async throws {
+        let bridge = HiggsfieldCLIBridge()
+        let token: String
+        do {
+            token = try await bridge.accessToken()
+        } catch HiggsfieldError.notSignedIn where loginIfNeeded {
+            if case .signingIn = authState { authState = .signingIn("Finish signing in to Higgsfield in your browser…") }
+            try await bridge.login()
+            token = try await bridge.accessToken()
+        }
+        try configuration.storage.tokenStore().save(
+            TokenSet(accessToken: token, expiresAt: Date().addingTimeInterval(CLITokenProvider.defaultMaxAge), source: .higgsfieldCLI))
+    }
+
+    /// Container app: serves `higgsfieldfcp://cli-token` from the extension.
+    /// Refreshes the stored CLI token without disturbing this window's state;
+    /// concurrent requests share one run. The outcome is written to the shared
+    /// status file so the extension can report CLI failures promptly.
+    public func refreshCLISessionForExtension() {
+        guard cliRefreshTask == nil else { return }
+        cliRefreshTask = Task {
+            defer { cliRefreshTask = nil }
+            do {
+                try await fetchCLIToken(loginIfNeeded: true)
+                CLIStatus(ok: true, message: nil).write(to: configuration.storage.cliStatusFile)
+                if case .signedOut = authState { await restoreSession(reconnect: true) }
+            } catch {
+                let message = (error as? HiggsfieldError)?.userMessage ?? error.localizedDescription
+                CLIStatus(ok: false, message: message).write(to: configuration.storage.cliStatusFile)
+                show(error)
+            }
+        }
+    }
+
+    func signIn(withAccessToken token: String) async {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         do {
             try configuration.storage.tokenStore().save(TokenSet(accessToken: trimmed, source: .manual))
             await connect(provider: provider(for: .manual), source: .manual)
-            notifySessionChanged()
+            notifySessionChangedIfSignedIn()
         } catch {
             show(error)
         }
@@ -245,8 +329,9 @@ public final class PanelModel: ObservableObject {
     public func signOut() {
         try? configuration.storage.tokenStore().clear()
         client = nil
+        connectGeneration += 1
+        // Keep the runner (uploads already in progress finish); stop polling.
         if let runner { Task { await runner.stopAll() } }
-        runner = nil
         account = nil
         workspaces = []
         authState = .signedOut
@@ -255,32 +340,27 @@ public final class PanelModel: ObservableObject {
     }
 
     private func connect(provider: AccessTokenProvider, source: CredentialSource) async {
+        connectGeneration += 1
+        let generation = connectGeneration
         let client = HiggsfieldClient(
             configuration: HiggsfieldConfiguration(userAgent: "HiggsfieldFCP/\(Self.appVersion) (\(isExtension ? "FCP extension" : "app"))"),
             tokenProvider: provider
         )
-        // Replace any previous session's runner so jobs are never polled twice.
-        if let old = runner { await old.stopAll() }
-        let runner = JobRunner(client: client, store: store, output: OutputLocation(root: outputRoot),
-                               trimmer: AVMediaTrimmer(workDirectory: configuration.storage.workDirectory))
-        await runner.setUpdateHandler { [weak self] record in
-            Task { @MainActor in self?.jobUpdated(record) }
-        }
-        self.client = client
-        self.runner = runner
         do {
             let spaces = try await client.workspaces()
-            workspaces = spaces
             let selected = spaces.first { $0.id == settings.workspaceID } ?? spaces.first
-            workspaceID = selected?.id
             await client.setWorkspace(selected?.id)
-            account = try await client.balance()
+            let balance = try await client.balance()
+            guard generation == connectGeneration else { return }
+            workspaces = spaces
+            workspaceID = selected?.id
+            account = balance
             authState = .signedIn(source)
         } catch let error as HiggsfieldError {
+            guard generation == connectGeneration else { return }
             switch error {
             case .notSignedIn, .unauthorized:
                 self.client = nil
-                self.runner = nil
                 authState = .signedOut
                 if case .unauthorized = error { show(error) }
                 return
@@ -290,12 +370,27 @@ public final class PanelModel: ObservableObject {
                 show(error)
             }
         } catch {
+            guard generation == connectGeneration else { return }
             authState = .signedIn(source)
             show(error)
         }
-        // A newer connect may have replaced this runner while we awaited.
-        guard self.runner === runner else { return }
-        await runner.resumeActiveJobs()
+        self.client = client
+        // One runner for the panel's lifetime: swap credentials in place so
+        // in-flight uploads and polls are never duplicated or marked failed.
+        let runner: JobRunner
+        if let existing = self.runner {
+            runner = existing
+            await runner.setClient(client)
+        } else {
+            runner = JobRunner(client: client, store: store, output: OutputLocation(root: outputRoot),
+                               trimmer: AVMediaTrimmer(workDirectory: configuration.storage.workDirectory))
+            await runner.setUpdateHandler { [weak self] record in
+                Task { @MainActor in self?.jobUpdated(record) }
+            }
+            self.runner = runner
+        }
+        await runner.resumeActiveJobs(markInterrupted: !didSweepInterrupted)
+        didSweepInterrupted = true
         loadLiveSchemas()
         scheduleCostEstimate()
     }
@@ -318,27 +413,37 @@ public final class PanelModel: ObservableObject {
 
     /// The sandboxed extension can't run the CLI; it wakes the container app,
     /// which runs `hf auth token` and writes the token to the shared Keychain.
-    nonisolated static func requestCLITokenFromContainerApp(scheme: String, store: TokenStore) async throws {
+    nonisolated static func requestCLITokenFromContainerApp(scheme: String, store: TokenStore, statusFile: URL) async throws {
         // The app stamps every token it fetches with a fresh expiry, so a
-        // changed expiry means the request was served.
+        // changed expiry means the request was served. Failures are reported
+        // through the shared status file.
         let previousExpiry = (try? store.load())?.expiresAt
+        let requestedAt = Date()
         guard let url = URL(string: "\(scheme)://cli-token") else { return }
         await MainActor.run {
             let config = NSWorkspace.OpenConfiguration()
             config.activates = false
             NSWorkspace.shared.open(url, configuration: config, completionHandler: nil)
         }
-        for _ in 0..<120 {
+        // `hf auth login` may wait up to 5 minutes for the browser sign-in.
+        for _ in 0..<660 {
             try await Task.sleep(nanoseconds: 500_000_000)
             if let tokens = try? store.load(), tokens.source == .higgsfieldCLI, tokens.expiresAt != previousExpiry {
                 return
             }
+            if let status = CLIStatus.read(from: statusFile), status.date > requestedAt, !status.ok {
+                throw HiggsfieldError.cliUnavailable(status.message ?? "The Higgsfield CLI couldn’t provide a session.")
+            }
         }
-        throw HiggsfieldError.cliUnavailable("The Higgsfield for Final Cut Pro app didn’t return a session. Open it once and choose “Use Higgsfield CLI session”.")
+        throw HiggsfieldError.cliUnavailable("The Higgsfield for Final Cut Pro app didn’t return a session. Open it once and choose “Use Higgsfield CLI Session”.")
     }
 
     /// Identifies this process in distributed notifications.
     nonisolated static let processTag = "pid-\(ProcessInfo.processInfo.processIdentifier)"
+
+    private func notifySessionChangedIfSignedIn() {
+        if case .signedIn = authState { notifySessionChanged() }
+    }
 
     private func notifySessionChanged() {
         DistributedNotificationCenter.default().postNotificationName(.higgsfieldSessionChanged, object: Self.processTag,
@@ -420,6 +525,7 @@ public final class PanelModel: ObservableObject {
     private func operationChanged() {
         settings.lastOperation = operation
         saveSettings()
+        Task { await refreshSourceAccess(draft.source) }
         loadLiveSchemas()
         scheduleCostEstimate()
     }
@@ -438,7 +544,7 @@ public final class PanelModel: ObservableObject {
         let encoder = JSONEncoder()
         guard let data = try? encoder.encode(drafts) else { return }
         try? FileManager.default.createDirectory(at: configuration.storage.root, withIntermediateDirectories: true)
-        try? data.write(to: configuration.storage.draftsFile, options: .atomic)
+        try? data.write(to: configuration.storage.draftsFile(extension: isExtension), options: .atomic)
     }
 
     private static func loadDrafts(from url: URL) -> [OperationKind: OperationDraft]? {
@@ -566,6 +672,13 @@ public final class PanelModel: ObservableObject {
         resultInfo[record.id]
     }
 
+    /// Probes a finished result's file once (needed for drag, import and reuse).
+    public func ensureResultInfo(_ record: JobRecord) async {
+        guard resultInfo[record.id] == nil, let file = record.localFile,
+              FileManager.default.fileExists(atPath: file.path) else { return }
+        resultInfo[record.id] = await probe.probe(file)
+    }
+
     public func importToFinalCut(_ record: JobRecord) async {
         guard let file = record.localFile else { return }
         var info = resultInfo[record.id]
@@ -601,6 +714,8 @@ public final class PanelModel: ObservableObject {
     /// Feeds a finished result into a tool (e.g. Generate → Upscale) without re-uploading.
     public func useAsSource(_ record: JobRecord, in op: OperationKind) {
         guard let file = record.localFile else { return }
+        // Media info (duration, size) drives limits, duration and trimming;
+        // refreshSourceAccess probes it if it isn't known yet.
         let clip = SourceClip(name: record.clipName, fileURL: file, kind: record.output, origin: .higgsfieldResult,
                               info: resultInfo[record.id], remoteReference: record.remoteReference)
         operation = op
@@ -659,6 +774,10 @@ public final class PanelModel: ObservableObject {
     @discardableResult
     public func useTimelineClip() -> Bool {
         guard let project = timelineProject else { return false }
+        guard timelineProjectMatchesActiveSequence else {
+            banner = Banner(kind: .info, text: "“\(project.name)” isn’t the timeline open in Final Cut Pro. Drag the open project here to link it.")
+            return false
+        }
         if let range = timeline.range, range.upperBound - range.lowerBound > 0.05,
            let source = TimelineResolver.source(for: range, in: project) {
             setSource(source)
@@ -673,7 +792,16 @@ public final class PanelModel: ObservableObject {
     }
 
     public var canUseTimelineClip: Bool {
-        timelineProject != nil && (timeline.playhead != nil || timeline.range != nil)
+        timelineProject != nil && timelineProjectMatchesActiveSequence && (timeline.playhead != nil || timeline.range != nil)
+    }
+
+    /// The linked project must be the one open in FCP, otherwise the playhead
+    /// would be resolved against the wrong timeline. Without host info (no
+    /// SDK) the link can't be checked and is trusted.
+    var timelineProjectMatchesActiveSequence: Bool {
+        guard let project = timelineProject else { return false }
+        let open = [timeline.projectName, timeline.sequenceName].compactMap { $0 }
+        return open.isEmpty || open.contains(project.name)
     }
 
     public func setSource(_ clip: SourceClip?) {
@@ -688,7 +816,6 @@ public final class PanelModel: ObservableObject {
         }
         draft = d
         loadLiveSchemas()
-        guard let clip else { sourceAccess = .ok; return }
         Task { await refreshSourceAccess(clip) }
     }
 
@@ -701,26 +828,32 @@ public final class PanelModel: ObservableObject {
         draft = d
     }
 
-    private func refreshSourceAccess(_ clip: SourceClip) async {
+    private func refreshSourceAccess(_ clip: SourceClip?) async {
+        guard let clip else { sourceAccess = .ok; return }
         let url = clip.fileURL
-        if clip.remoteReference != nil { sourceAccess = .ok; return }
-        if FileManager.default.isReadableFile(atPath: url.path) {
-            sourceAccess = .ok
-            if let info = await probe.probe(url), draft.source?.id == clip.id {
-                var source = clip
-                // Keep FCPXML-provided values where AVFoundation has none.
-                source.info = MediaInfo(kind: info.kind, duration: info.duration ?? clip.info?.duration,
-                                        frameRate: info.frameRate ?? clip.info?.frameRate, width: info.width ?? clip.info?.width,
-                                        height: info.height ?? clip.info?.height, hasAudio: info.hasAudio, isPlayable: info.isPlayable)
-                var d = draft
-                d.source = source
-                draft = d
-            }
+        let readable = FileManager.default.isReadableFile(atPath: url.path)
+        let access: SourceAccess
+        if clip.remoteReference != nil && !clip.needsTrim {
+            access = .ok  // passed by job id; the local file is only for preview/info
+        } else if readable {
+            access = .ok
         } else if FileManager.default.fileExists(atPath: url.path) || isExtension {
-            sourceAccess = .needsPermission(url)
+            access = .needsPermission(url)
         } else {
-            sourceAccess = .missing(url)
+            access = .missing(url)
         }
+        guard draft.source?.id == clip.id else { return }
+        sourceAccess = access
+        guard readable else { return }
+        guard let info = await probe.probe(url), draft.source?.id == clip.id else { return }
+        var source = draft.source ?? clip
+        // Keep FCPXML-provided values where AVFoundation has none.
+        source.info = MediaInfo(kind: info.kind, duration: info.duration ?? clip.info?.duration,
+                                frameRate: info.frameRate ?? clip.info?.frameRate, width: info.width ?? clip.info?.width,
+                                height: info.height ?? clip.info?.height, hasAudio: info.hasAudio, isPlayable: info.isPlayable)
+        var d = draft
+        d.source = source
+        draft = d
     }
 
     /// Asks the user to grant the sandboxed extension read access to the
@@ -735,7 +868,22 @@ public final class PanelModel: ObservableObject {
         panel.directoryURL = url.deletingLastPathComponent()
         guard panel.runModal() == .OK, let granted = panel.url else { return }
         if granted.startAccessingSecurityScopedResource() { securityScopedURLs.append(granted) }
-        if let clip = draft.source { Task { await refreshSourceAccess(clip) } }
+        // Remember the grant so it survives the extension being relaunched.
+        if let bookmark = try? granted.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
+            settings.securityBookmarks = Array((settings.securityBookmarks + [bookmark]).suffix(20))
+            saveSettings()
+        }
+        Task { await refreshSourceAccess(draft.source) }
+    }
+
+    /// Re-opens folders the user granted earlier (security-scoped bookmarks).
+    private func restoreSecurityScopedAccess() {
+        for data in settings.securityBookmarks {
+            var stale = false
+            guard let url = try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale),
+                  !securityScopedURLs.contains(url), url.startAccessingSecurityScopedResource() else { continue }
+            securityScopedURLs.append(url)
+        }
     }
 
     public func chooseSourceFile() {
@@ -772,7 +920,13 @@ public final class PanelModel: ObservableObject {
     // MARK: Timeline
 
     private func timelineChanged(_ state: TimelineState) {
+        let previous = timeline
         timeline = state
+        // Opening another project in FCP invalidates the linked timeline.
+        if timelineProject != nil, state.sequenceName != previous.sequenceName || state.projectName != previous.projectName,
+           !timelineProjectMatchesActiveSequence {
+            timelineProject = nil
+        }
     }
 
     /// Generate Video: match the duration to the selected timeline range.
@@ -817,7 +971,7 @@ public final class PanelModel: ObservableObject {
     }
 
     private func saveSettings() {
-        settings.save(to: configuration.storage.settingsFile)
+        settings.save(to: configuration.storage.settingsFile(extension: isExtension))
     }
 }
 

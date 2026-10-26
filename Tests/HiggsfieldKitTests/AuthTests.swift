@@ -87,6 +87,53 @@ final class AuthTests: XCTestCase {
         XCTAssertEqual(t.requests.count, 1)
     }
 
+    func testStoredProviderCoalescesConcurrentRefreshes() async throws {
+        let store = MemoryTokenStore(TokenSet(accessToken: "OLD", expiresAt: Date(timeIntervalSinceNow: -5), source: .higgsfieldCLI))
+        let counter = Counter()
+        let provider = StoredTokenProvider(store: store) {
+            await counter.increment()
+            try await Task.sleep(nanoseconds: 50_000_000)
+            try store.save(TokenSet(accessToken: "NEW", expiresAt: Date(timeIntervalSinceNow: 600), source: .higgsfieldCLI))
+        }
+        let tokens = try await withThrowingTaskGroup(of: String.self) { group -> [String] in
+            for _ in 0..<5 { group.addTask { try await provider.accessToken(forceRefresh: false) } }
+            var out: [String] = []
+            for try await t in group { out.append(t) }
+            return out
+        }
+        XCTAssertEqual(tokens, Array(repeating: "NEW", count: 5))
+        let calls = await counter.value
+        XCTAssertEqual(calls, 1, "one refresh for concurrent callers")
+    }
+
+    func testOAuthProviderUsesTokensRotatedByAnotherProcess() async throws {
+        let t = MockTransport()
+        let store = MemoryTokenStore(TokenSet(accessToken: "A1", refreshToken: "R1", expiresAt: Date(timeIntervalSinceNow: 600), source: .oauth))
+        let provider = OAuthTokenProvider(configuration: OAuthConfiguration(clientID: "C", redirectURI: "x"), store: store, transport: t)
+        let first = try await provider.accessToken(forceRefresh: false)
+        XCTAssertEqual(first, "A1")
+        // The other process refreshed and rotated the shared credential.
+        try store.save(TokenSet(accessToken: "A2", refreshToken: "R2", expiresAt: Date(timeIntervalSinceNow: 600), source: .oauth))
+        let second = try await provider.accessToken(forceRefresh: false)
+        XCTAssertEqual(second, "A2")
+        XCTAssertTrue(t.requests.isEmpty, "no refresh needed")
+    }
+
+    func testFailedRefreshDoesNotClearACredentialReplacedMeanwhile() async throws {
+        let t = MockTransport()
+        let store = MemoryTokenStore(TokenSet(accessToken: "A1", refreshToken: "R1", expiresAt: Date(timeIntervalSinceNow: -5), source: .oauth))
+        t.on("POST", "oauth/token", status: 400, json: #"{"error":"invalid_grant"}"#)
+        let provider = OAuthTokenProvider(configuration: OAuthConfiguration(clientID: "C", redirectURI: "x"), store: store, transport: t)
+        do { _ = try await provider.accessToken(forceRefresh: false); XCTFail() } catch {}
+        XCTAssertNil(try store.load(), "our own stale credential is cleared")
+
+        let store2 = ReplacingStore(initial: TokenSet(accessToken: "A1", refreshToken: "R1", expiresAt: Date(timeIntervalSinceNow: -5), source: .oauth),
+                                    replacement: TokenSet(accessToken: "B", refreshToken: "R9", expiresAt: Date(timeIntervalSinceNow: 600), source: .oauth))
+        let provider2 = OAuthTokenProvider(configuration: OAuthConfiguration(clientID: "C", redirectURI: "x"), store: store2, transport: t)
+        do { _ = try await provider2.accessToken(forceRefresh: false); XCTFail() } catch {}
+        XCTAssertEqual(try store2.load()?.accessToken, "B", "a credential written by the other process survives")
+    }
+
     func testOAuthProviderWithoutTokensRequiresSignIn() async {
         let provider = OAuthTokenProvider(configuration: OAuthConfiguration(clientID: "C", redirectURI: "x"), store: MemoryTokenStore(), transport: MockTransport())
         do {
@@ -111,6 +158,20 @@ final class AuthTests: XCTestCase {
     }
 
     #if !os(Windows)
+    func testCLIBridgeDrainsLargeOutputWithoutBlocking() async throws {
+        // > 64 KB on stderr would block a CLI whose pipes are read only at exit.
+        let script = try temporaryFile(named: "hf", contents: """
+        #!/bin/sh
+        i=0; while [ $i -lt 3000 ]; do echo "log line $i padding padding padding padding padding" >&2; i=$((i+1)); done
+        echo "BIG_OUTPUT_TOKEN"
+        """)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        let start = Date()
+        let token = try await HiggsfieldCLIBridge(executableURL: script, environment: [:]).accessToken()
+        XCTAssertEqual(token, "BIG_OUTPUT_TOKEN")
+        XCTAssertLessThan(Date().timeIntervalSince(start), 10)
+    }
+
     func testCLIBridgeReadsTokenFromOfficialCommand() async throws {
         let script = try temporaryFile(named: "hf", contents: """
         #!/bin/sh
@@ -147,4 +208,32 @@ final class AuthTests: XCTestCase {
         XCTAssertNil(HiggsfieldCLIBridge(executableURL: nil, environment: ["PATH": "/nonexistent", "HOME": "/nonexistent"]).executableURL.flatMap { $0.path.hasPrefix("/nonexistent") ? $0 : nil })
     }
     #endif
+}
+
+actor Counter {
+    private(set) var value = 0
+    func increment() { value += 1 }
+}
+
+/// Simulates the other process replacing the credential right after we read it.
+final class ReplacingStore: TokenStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var tokens: TokenSet?
+    private var replacement: TokenSet?
+    private var reads = 0
+
+    init(initial: TokenSet, replacement: TokenSet) {
+        tokens = initial
+        self.replacement = replacement
+    }
+
+    func load() throws -> TokenSet? {
+        lock.lock(); defer { lock.unlock() }
+        reads += 1
+        if reads == 2, let r = replacement { tokens = r; replacement = nil }
+        return tokens
+    }
+
+    func save(_ tokens: TokenSet) throws { lock.lock(); self.tokens = tokens; lock.unlock() }
+    func clear() throws { lock.lock(); tokens = nil; lock.unlock() }
 }

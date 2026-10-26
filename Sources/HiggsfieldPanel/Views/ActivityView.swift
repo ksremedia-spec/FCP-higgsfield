@@ -95,8 +95,8 @@ struct JobRow: View {
         .frame(width: 84, height: 48)
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .help(job.phase == .completed ? "Drag onto the Final Cut Pro timeline or browser" : job.phase.label)
-        .modifier(DragIfReady(enabled: job.phase == .completed && job.localFile != nil, image: thumbnail) { model.dragProvider(for: job) })
-        .onTapGesture(count: 2) { if job.phase == .completed { showPreview = true } }
+        .modifier(DragIfReady(enabled: job.phase == .completed && job.localFile != nil, image: thumbnail,
+                              onDoubleClick: { showPreview = true }) { model.dragProvider(for: job) })
     }
 
     @ViewBuilder
@@ -188,7 +188,9 @@ struct JobRow: View {
 
     private func loadThumbnail() async {
         guard let file = job.localFile else { thumbnail = nil; return }
+        await model.ensureResultInfo(job)
         let image = await FrameGrabber.image(from: file, at: 0.5, maximumSize: CGSize(width: 240, height: 136))
+        guard !Task.isCancelled else { return }
         thumbnail = image.map { NSImage(cgImage: $0, size: .zero) }
     }
 }
@@ -197,12 +199,13 @@ struct JobRow: View {
 struct DragIfReady: ViewModifier {
     var enabled: Bool
     var image: NSImage?
+    var onDoubleClick: () -> Void
     var provider: () -> FCPXMLDragProvider?
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if enabled {
-            content.fcpxmlDragSource(image: image, provider)
+            content.fcpxmlDragSource(image: image, onDoubleClick: onDoubleClick, provider)
         } else {
             content
         }

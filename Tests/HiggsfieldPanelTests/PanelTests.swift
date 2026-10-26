@@ -86,6 +86,41 @@ final class PanelTests: XCTestCase {
         XCTAssertEqual(source.outPoint, 5)
     }
 
+    func testLinkedTimelineMustMatchOpenSequence() throws {
+        let model = makeModel()
+        model.operation = .reframe
+        model.applyPreviewState(auth: .signedIn(.manual), timeline: TimelineState(sequenceName: "Spot v3", frameDuration: 0.04, playhead: 3605))
+        model.handleDrop(.fcpxml(Data(Self.projectXML.utf8)))
+        XCTAssertTrue(model.canUseTimelineClip)
+        // The editor opens a different project in FCP: the link no longer applies.
+        model.applyPreviewState(auth: .signedIn(.manual), timeline: TimelineState(sequenceName: "Other Project", frameDuration: 0.04, playhead: 3605),
+                                project: model.timelineProject)
+        XCTAssertFalse(model.canUseTimelineClip)
+        model.setSource(nil)
+        XCTAssertFalse(model.useTimelineClip())
+        XCTAssertNil(model.draft.source, "nothing is resolved against the wrong timeline")
+    }
+
+    func testSourceAccessFollowsTheActiveTool() async throws {
+        let model = makeModel()
+        model.operation = .upscale
+        model.setSource(SourceClip(name: "Missing", fileURL: URL(fileURLWithPath: "/Volumes/Nope/clip.mov"), kind: .video, origin: .file,
+                                   info: MediaInfo(kind: .video, duration: 4)))
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertNotEqual(model.sourceAccess, .ok)
+        model.operation = .generateImage  // no source in this tool
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(model.sourceAccess, .ok, "a tool without a source isn't blocked by another tool's file")
+    }
+
+    func testAppAndExtensionKeepSeparateSettings() {
+        let ext = makeModel(.workflowExtension)
+        ext.operation = .reframe
+        let app = makeModel(.containerApp)
+        XCTAssertEqual(app.operation, .generateVideo, "the app doesn't inherit the extension's last tool")
+        XCTAssertNotEqual(SharedStorage(root: tempRoot).settingsFile(extension: true), SharedStorage(root: tempRoot).settingsFile(extension: false))
+    }
+
     func testSourceKindSwitchesJobType() throws {
         let model = makeModel()
         model.operation = .removeBackground

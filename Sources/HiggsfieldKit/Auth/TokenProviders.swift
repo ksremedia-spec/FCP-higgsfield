@@ -32,16 +32,34 @@ public actor OAuthTokenProvider: AccessTokenProvider {
     }
 
     public func accessToken(forceRefresh: Bool) async throws -> String {
-        if cached == nil { cached = try store.load() }
+        // The app and the extension share this store; another process may
+        // already have refreshed (and rotated) the tokens, so re-read first.
+        let stored = try store.load()
+        if let stored, stored != cached { cached = stored }
         guard let tokens = cached else { throw HiggsfieldError.notSignedIn }
         if !forceRefresh && !tokens.isExpired() { return tokens.accessToken }
+        if let refreshTask { return try await refreshTask.value }
+        let task = Task { try await self.refresh(tokens) }
+        refreshTask = task
+        defer { refreshTask = nil }
+        return try await task.value
+    }
+
+    private var refreshTask: Task<String, Error>?
+
+    private func refresh(_ tokens: TokenSet) async throws -> String {
         guard let refresh = tokens.refreshToken else {
             throw HiggsfieldError.unauthorized("Session expired and cannot be refreshed.")
         }
         let (data, response) = try await transport.send(configuration.refreshRequest(refreshToken: refresh))
         guard (200..<300).contains(response.statusCode) else {
-            try? store.clear()
-            cached = nil
+            // Only discard the shared credential if nobody replaced it meanwhile.
+            if let current = try? store.load(), current.refreshToken == refresh {
+                try? store.clear()
+                cached = nil
+            } else {
+                cached = try? store.load()
+            }
             throw HiggsfieldError.unauthorized(HiggsfieldError.extractMessage(from: data))
         }
         let parsed = try JSONDecoder().decode(OAuthTokenResponse.self, from: data)
@@ -113,11 +131,21 @@ public actor StoredTokenProvider: AccessTokenProvider {
         self.refreshHandler = refreshHandler
     }
 
+    private var refreshTask: Task<Void, Error>?
+
     public func accessToken(forceRefresh: Bool) async throws -> String {
         if !forceRefresh, let tokens = try store.load(), !tokens.isExpired(leeway: 0) {
             return tokens.accessToken
         }
-        try await refreshHandler()
+        // Concurrent callers (polls, cost estimate, balance) share one refresh.
+        if let refreshTask {
+            try await refreshTask.value
+        } else {
+            let task = Task { try await refreshHandler() }
+            refreshTask = task
+            defer { refreshTask = nil }
+            try await task.value
+        }
         guard let tokens = try store.load() else { throw HiggsfieldError.notSignedIn }
         return tokens.accessToken
     }

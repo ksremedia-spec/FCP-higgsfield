@@ -85,11 +85,14 @@ public struct HiggsfieldCLIBridge: Sendable {
             process.standardOutput = out
             process.standardError = err
             process.standardInput = FileHandle.nullDevice
+            // Drain both pipes while the process runs so a chatty CLI can't
+            // block on a full pipe buffer.
+            let outBuffer = PipeBuffer(out), errBuffer = PipeBuffer(err)
             let timer = DispatchWorkItem { if process.isRunning { process.terminate() } }
             process.terminationHandler = { p in
                 timer.cancel()
-                let stdout = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-                let stderr = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                let stdout = String(decoding: outBuffer.finish(), as: UTF8.self)
+                let stderr = String(decoding: errBuffer.finish(), as: UTF8.self)
                 continuation.resume(returning: Result(status: p.terminationStatus, stdout: stdout, stderr: stderr))
             }
             do {
@@ -99,5 +102,30 @@ public struct HiggsfieldCLIBridge: Sendable {
                 continuation.resume(throwing: HiggsfieldError.cliUnavailable("Couldn’t launch the Higgsfield CLI: \(error.localizedDescription)"))
             }
         }
+    }
+}
+
+/// Accumulates a pipe's output as it arrives.
+private final class PipeBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+    private let handle: FileHandle
+
+    init(_ pipe: Pipe) {
+        handle = pipe.fileHandleForReading
+        handle.readabilityHandler = { [weak self] h in
+            let chunk = h.availableData
+            guard let self, !chunk.isEmpty else { return }
+            self.lock.lock(); self.data.append(chunk); self.lock.unlock()
+        }
+    }
+
+    /// Stops streaming and returns everything, including any unread tail.
+    func finish() -> Data {
+        handle.readabilityHandler = nil
+        let rest = handle.readDataToEndOfFile()
+        lock.lock(); defer { lock.unlock() }
+        data.append(rest)
+        return data
     }
 }

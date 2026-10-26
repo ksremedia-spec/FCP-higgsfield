@@ -79,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Keychain and both panels are notified.
     private func handleCommand(_ url: URL) {
         guard url.host == "cli-token" else { return }
-        Task { await model.signInWithCLI() }
+        model.refreshCLISessionForExtension()
     }
 
     /// Final Cut Pro rendered a clip/range via the Share destination; make it

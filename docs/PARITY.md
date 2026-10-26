@@ -12,19 +12,19 @@ Reference: the official plugin at <https://higgsfield.ai/plugins/premiere-pro>. 
 | **L4 Live-verified** | Run end-to-end through this app's client against the live Higgsfield API. |
 | **L5 Verified in FCP** | Exercised inside Final Cut Pro. |
 
-No generation has run yet (L4) and nothing has run inside Final Cut Pro (L5). On 2026-10-26 the read-only parts ran live through this app's client: sign-in through the CLI session, balance, catalog, every tool's schema and every tool's cost estimate. The same day showed that Higgsfield's job schemas now take media as top-level properties; the app was changed to send them the way the official CLI 1.2.2 does, so L2 for #1–#7 refers to those new recordings. Details and the remaining checklist: [VALIDATION.md](VALIDATION.md).
+Every tool has now run end to end through this app's client against the live API (L4, 2026-10-26, VALIDATION). Nothing has run inside Final Cut Pro yet (L5): the extension crashes on load without Apple's Workflow Extension SDK. On 2026-10-26 the read-only parts ran live through this app's client: sign-in through the CLI session, balance, catalog, every tool's schema and every tool's cost estimate. The same day showed that Higgsfield's job schemas now take media as top-level properties; the app was changed to send them the way the official CLI 1.2.2 does, so L2 for #1–#7 refers to those new recordings. Details and the remaining checklist: [VALIDATION.md](VALIDATION.md).
 
 ## Summary
 
 | # | Feature | FCP mechanism | Level | Main open item |
 |---|---|---|---|---|
-| 1 | Generate Video | `POST /videos/{model}/generations`; result dragged or imported via FCPXML | L3 + L2; cost live through the app | Paid live run |
-| 2 | Generate Image | `POST /images/{model}/generations` | L3 + L2; cost live through the app | Paid live run |
-| 3 | Edit Video | Source from FCP browser/timeline/Share → Seedance 2.0 / Kling Omni Edit with video reference | L3 + L2; cost live through the app | Paid live run (roles settled: `video_references` for all four models) |
-| 4 | Reframe | `reframe` job type; target-format grid | **L3 + L2; cost live through the app (123 credits, 10 s at 1080p)** | Paid live run |
-| 5 | Remove Background | `video_background_remover` / `image_background_remover` | L3 + L2; cost live through the app | Output alpha format vs FCP import |
-| 6 | Upscale | `topaz_video` (1080p/4K), `bytedance_video_upscale` (1080p/2K/4K), `bytedance_image_upscale` (2K/4K) | L3 + L2; cost live through the app (not Topaz) | Paid live run; Topaz has no cost estimate |
-| 7 | Draw to Edit | Sketch canvas → `draw_to_video` (video) / `nano_banana_flash` mask inpainting (stills) | L3 + L2; cost live through the app | Paid live run (sketch role settled: `image_references`) |
+| 1 | Generate Video | `POST /videos/{model}/generations`; result dragged or imported via FCPXML | **L4** (Seedance 2.0) | Verify inside FCP |
+| 2 | Generate Image | `POST /images/{model}/generations` | **L4** (Nano Banana 2) | Verify inside FCP |
+| 3 | Edit Video | Source from FCP browser/timeline/Share → Seedance 2.0 / Kling Omni Edit with video reference | **L4** (Kling Omni Edit; Seedance's run was blocked by Higgsfield as `ip_detected`) | Verify inside FCP |
+| 4 | Reframe | `reframe` job type; target-format grid | **L4** | Verify inside FCP |
+| 5 | Remove Background | `video_background_remover` / `image_background_remover` | **L4** (video) | **Result has no alpha** (subject on black, H.264) |
+| 6 | Upscale | `topaz_video` (1080p/4K), `bytedance_video_upscale` (1080p/2K/4K), `bytedance_image_upscale` (2K/4K) | **L4** (ByteDance video) | Topaz not run (no cost estimate) |
+| 7 | Draw to Edit | Sketch canvas → `draw_to_video` (video) / `nano_banana_flash` mask inpainting (stills) | **L4** (video) | Stills not run |
 | 8 | Model selection & settings | Live JSON Schema from `GET /job_types/{id}` → native controls; bundled snapshot fallback | **L4** (live schemas read and parsed through the app's client) | Check the controls in the panel |
 | 9 | Progress, previews, errors, jobs | Persistent job runner, polling, previews, typed errors | L2 (unit-tested) + L1 (UI) | Live run |
 | 10 | Account auth & credits | Official CLI session / own OAuth (PKCE) / token; balance + cost preflight | **L4** for CLI-session sign-in, balance and cost preflight | Higgsfield-issued OAuth client ID for built-in sign-in |

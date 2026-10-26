@@ -115,7 +115,6 @@ The official CLI's behaviour was also verified through a capture proxy, with no 
 
 | Item | Blocker in the build environment | How to verify |
 |---|---|---|
-| A **paid generation per tool** through the app (L4) | Spends credits; not done without your go-ahead | `hfcp run …` (below) or the panel. This is also the first proof that the top-level media layout is accepted. |
 | **Remove Background output format** (alpha? container?) | Needs a live run | `hfcp run removeBackground --file clip.mov --yes`, then check the file in FCP |
 | **Anything inside Final Cut Pro** (L5) | Needs the Mac: building the app needs Xcode, and FCP can't be driven from the cloud workspace | The acceptance checklist below |
 | **Panel layout vs the official plugin** | Needs the owner's decision (PARITY, *Panel layout vs the official plugin*) | — |
@@ -123,6 +122,26 @@ The official CLI's behaviour was also verified through a capture proxy, with no 
 | **Built-in "Sign in with Higgsfield"** (optional) | Needs an OAuth client ID issued by Higgsfield | Set `HIGGSFIELD_OAUTH_CLIENT_ID` in `App/project.yml` |
 | **App Group and Keychain with a real team** (optional) | Needs your Team ID and a Mac; CI can only ad-hoc sign | Follow README, *Paid developer team*, then the checklist |
 | **Timeline API binding** (`ProExtensionHost`) | Needs Apple's Workflow Extension SDK and FCP | `scripts/configure-workflow-sdk.sh`, then the checklist |
+
+## Paid runs through this app's client (2026-10-26, L4)
+
+Approved by the owner (budget 100 credits). Run with `hfcp --cli run …`, which uses the same request builder, upload code and job runner as the panel. The source clip for the processing tools was the Generate Video result (5 s, 1280×720, 24 fps), uploaded through the app's upload code. Balance 854.14 → 766.63: **87.5 credits spent**.
+
+| Tool (model) | Credits | Result (files opened and checked) |
+|---|---|---|
+| Generate Video (Seedance 2.0, 5 s, 720p, 16:9) | 22.5 | H.264, 1280×720, 24 fps, 5.04 s; matches the prompt (coastal house, person in a red jacket on the path) |
+| Reframe (9:16, 720p) | 25.5 | H.264, 720×1280, 5.04 s; house kept in frame |
+| Remove Background (video) | 1 | H.264 **yuv420p, no alpha**: the subject on solid black. See the open item below. |
+| Upscale (ByteDance video, 1080p) | 1 | H.264, 1920×1080 from 1280×720 |
+| Generate Image (Nano Banana 2) | 1.5 | PNG 1024×1024 (hfcp sent no ratio; the panel sends 16:9) |
+| Draw to Edit (video), first try | 0 | **Refused at submission**: needs `timestamp`, rejects `resolution` (fixed in `b0cc4a9`) |
+| Draw to Edit (video), after the fix | 26 | H.264 1280×720; the circled cottage became a red barn, the rest unchanged |
+| Edit Video (Seedance 2.0) | 0 | Job ended **`ip_detected`** (blocked by Higgsfield, not charged); the runner didn't recognise the status and kept polling (fixed in `b0cc4a9`) |
+| Edit Video (Kling 3.0 Omni Edit) | 10 | H.264 1920×1080; turned into a snowy evening with lit windows |
+
+Not run: Topaz upscale (no cost estimate available), still-image Remove Background / Upscale / Draw to Edit.
+
+**Open item, Remove Background:** Higgsfield returns an ordinary H.264 video on black, not a file with transparency, so FCP can't composite it directly as the Premiere plugin's "alpha channel" promises. Options for the owner: use it as a matte (FCP's Luma Keyer on the result, or as a mask source), or ask Higgsfield whether an alpha output exists.
 
 ## First run on the owner's Mac (2026-10-26)
 

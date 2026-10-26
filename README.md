@@ -24,7 +24,9 @@ The code is complete for all seven tools. It is built and tested in CI on macOS 
 
 On 2026-10-26 the free parts ran against the live Higgsfield API through this app's own client: sign-in through the official CLI session, balance, catalog, every tool's schema and every tool's cost estimate. That run found that uploads would have been refused, that Higgsfield now takes media as top-level properties, a wrong Draw to Edit sketch slot, stale model ids and incomplete estimates. All are fixed: uploads now succeed through the app's client, and every tool's request matches what the official CLI 1.2.2 sends today.
 
-**Not yet done:** a paid generation per tool (needs your go-ahead), and anything inside Final Cut Pro (needs the Mac). The official panel also uses a different layout (a home screen with recent generations and an app grid); that redesign is waiting on a decision. [docs/VALIDATION.md](docs/VALIDATION.md) lists exactly what is verified and how to close the remaining gaps.
+**Paid runs (2026-10-26):** every tool produced a correct result through the app's own code (87.5 credits). Remove Background returns the subject on black, not with transparency.
+
+**Not yet done:** anything inside Final Cut Pro. The extension is listed there but crashes on load; the likely fix is installing Apple's Workflow Extension SDK on the Mac. The official panel also uses a different layout (a home screen with recent generations and an app grid); that redesign is waiting on a decision. [docs/VALIDATION.md](docs/VALIDATION.md) lists exactly what is verified and how to close the remaining gaps.
 
 ## Build and install (personal setup)
 

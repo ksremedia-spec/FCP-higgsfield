@@ -1,0 +1,153 @@
+# XcodeGen spec: `xcodegen generate --spec App/project.yml`
+# Produces App/HiggsfieldFCP.xcodeproj with the container app and the
+# Final Cut Pro workflow extension, both linking the local Swift package.
+name: HiggsfieldFCP
+options:
+  bundleIdPrefix: com.ksremedia
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+settings:
+  base:
+    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+    # Set to an OAuth client ID issued to this app by Higgsfield to enable
+    # built-in "Sign in with Higgsfield". Empty = CLI session / token only.
+    HIGGSFIELD_OAUTH_CLIENT_ID: ""
+    HIGGSFIELD_OAUTH_REDIRECT_URI: "http://127.0.0.1:8765/callback"
+    # macOS App Group ids must start with the Team ID.
+    HIGGSFIELD_APP_GROUP: "$(TeamIdentifierPrefix)com.ksremedia.HiggsfieldFCP"
+    HIGGSFIELD_KEYCHAIN_GROUP: "$(AppIdentifierPrefix)com.ksremedia.HiggsfieldFCP.shared"
+
+packages:
+  HiggsfieldFCP:
+    path: ..
+
+targets:
+  HiggsfieldFCP:
+    type: application
+    platform: macOS
+    sources:
+      - path: HiggsfieldFCP
+    dependencies:
+      - package: HiggsfieldFCP
+        product: HiggsfieldKit
+      - package: HiggsfieldFCP
+        product: HiggsfieldPanel
+      - target: HiggsfieldWorkflowExtension
+    settings:
+      base:
+        PRODUCT_NAME: "Higgsfield for Final Cut Pro"
+        PRODUCT_BUNDLE_IDENTIFIER: com.ksremedia.HiggsfieldFCP
+        PRODUCT_MODULE_NAME: HiggsfieldFCPApp
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.video
+        COMBINE_HIDPI_IMAGES: YES
+    info:
+      path: HiggsfieldFCP/Info.plist
+      properties:
+        CFBundleDisplayName: Higgsfield for Final Cut Pro
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.video
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSHumanReadableCopyright: "Uses the Higgsfield API. Higgsfield is a trademark of its owner."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.ksremedia.HiggsfieldFCP
+            CFBundleURLSchemes: [higgsfieldfcp]
+        # Lets Final Cut Pro's Share ▸ Export File "Open with" target this app.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Media
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.movie, public.image]
+        HiggsfieldOAuthClientID: $(HIGGSFIELD_OAUTH_CLIENT_ID)
+        HiggsfieldOAuthRedirectURI: $(HIGGSFIELD_OAUTH_REDIRECT_URI)
+        HiggsfieldAppGroup: $(HIGGSFIELD_APP_GROUP)
+        HiggsfieldKeychainGroup: $(HIGGSFIELD_KEYCHAIN_GROUP)
+    entitlements:
+      path: HiggsfieldFCP/HiggsfieldFCP.entitlements
+      properties:
+        # Not sandboxed: it launches the official Higgsfield CLI (`hf auth token`).
+        com.apple.security.application-groups: [$(HIGGSFIELD_APP_GROUP)]
+        keychain-access-groups: [$(HIGGSFIELD_KEYCHAIN_GROUP)]
+
+  HiggsfieldWorkflowExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: HiggsfieldWorkflowExtension
+    dependencies:
+      - package: HiggsfieldFCP
+        product: HiggsfieldKit
+      - package: HiggsfieldFCP
+        product: HiggsfieldPanel
+    configFiles:
+      Debug: Config/WorkflowExtension.xcconfig
+      Release: Config/WorkflowExtension.xcconfig
+    settings:
+      base:
+        PRODUCT_NAME: HiggsfieldWorkflowExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.ksremedia.HiggsfieldFCP.WorkflowExtension
+        PRODUCT_MODULE_NAME: HiggsfieldWorkflowExtension
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    info:
+      path: HiggsfieldWorkflowExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Higgsfield
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        # Apple: "Building a Workflow Extension" — Info.plist keys.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.FinalCut.WorkflowExtension
+          ProExtensionPrincipalViewControllerClass: HiggsfieldWorkflowExtensionViewController
+          ProExtensionAttributes:
+            ContentViewMinimumWidth: 360
+            ContentViewMinimumHeight: 560
+        HiggsfieldOAuthClientID: $(HIGGSFIELD_OAUTH_CLIENT_ID)
+        HiggsfieldOAuthRedirectURI: $(HIGGSFIELD_OAUTH_REDIRECT_URI)
+        HiggsfieldAppGroup: $(HIGGSFIELD_APP_GROUP)
+        HiggsfieldKeychainGroup: $(HIGGSFIELD_KEYCHAIN_GROUP)
+    entitlements:
+      path: HiggsfieldWorkflowExtension/HiggsfieldWorkflowExtension.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        # Loopback redirect for OAuth sign-in.
+        com.apple.security.network.server: true
+        com.apple.security.application-groups: [$(HIGGSFIELD_APP_GROUP)]
+        keychain-access-groups: [$(HIGGSFIELD_KEYCHAIN_GROUP)]
+        com.apple.security.files.user-selected.read-write: true
+        com.apple.security.files.bookmarks.app-scope: true
+        # Results are written to ~/Movies/Higgsfield so Final Cut Pro can import them.
+        com.apple.security.assets.movies.read-write: true
+        com.apple.security.assets.pictures.read-only: true
+        # Source media referenced by FCPXML from the FCP browser lives on
+        # arbitrary volumes; the drag carries paths, not sandbox extensions.
+        # (Developer ID distribution; an App Store build would rely on the
+        # "Allow…" folder prompt instead.)
+        com.apple.security.temporary-exception.files.absolute-path.read-only: [/Volumes/]
+        com.apple.security.temporary-exception.files.home-relative-path.read-only: [/]
+    postBuildScripts:
+      - name: Embed ProExtensionHost.framework (when the Workflow Extension SDK is configured)
+        script: |
+          "${SRCROOT}/../scripts/embed-proextensionhost.sh"
+        basedOnDependencyAnalysis: false
+
+schemes:
+  HiggsfieldFCP:
+    build:
+      targets:
+        HiggsfieldFCP: all
+        HiggsfieldWorkflowExtension: all
+    run:
+      config: Debug
+    archive:
+      config: Release

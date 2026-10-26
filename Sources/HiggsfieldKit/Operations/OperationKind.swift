@@ -137,7 +137,7 @@ public enum OperationKind: String, CaseIterable, Codable, Sendable, Identifiable
     }
 
     /// Whether `duration` should follow the source clip's length.
-    var durationFollowsSource: Bool {
+    public var durationFollowsSource: Bool {
         switch self {
         case .editVideo, .drawToEdit, .reframe: return true
         default: return false
@@ -145,7 +145,7 @@ public enum OperationKind: String, CaseIterable, Codable, Sendable, Identifiable
     }
 
     /// Hard limits on source length (seconds) independent of model schema.
-    var maximumSourceDuration: Double? {
+    public var maximumSourceDuration: Double? {
         switch self {
         case .reframe: return 60  // MCP reframe tool: "Maximum supported duration is 60 seconds."
         default: return nil

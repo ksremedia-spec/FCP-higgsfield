@@ -1,0 +1,8 @@
+// Build settings for the Final Cut Pro workflow extension.
+//
+// The Workflow Extension SDK (ProExtensionHost.framework) is downloaded from
+// developer.apple.com and is not redistributable here. When it is installed,
+// run scripts/configure-workflow-sdk.sh: it writes ProExtensionHost.local.xcconfig,
+// which links and embeds the framework. Without it the extension still builds;
+// the timeline features report "timeline API unavailable" at run time.
+#include? "ProExtensionHost.local.xcconfig"

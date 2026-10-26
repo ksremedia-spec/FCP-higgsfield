@@ -123,7 +123,15 @@ public final class PanelModel: ObservableObject {
 
     public func start() {
         Task { await restoreSession() }
-        Task { jobs = await store.all() }
+        Task {
+            jobs = await store.all()
+            // Drag and import need each result's duration/size; probe finished files.
+            for job in jobs.prefix(50) where job.phase == .completed && resultInfo[job.id] == nil {
+                if let file = job.localFile, FileManager.default.fileExists(atPath: file.path) {
+                    resultInfo[job.id] = await probe.probe(file)
+                }
+            }
+        }
         configuration.host.startObserving { [weak self] state in
             self?.timelineChanged(state)
         }
@@ -578,8 +586,9 @@ public final class PanelModel: ObservableObject {
 
     /// FCPXML for dragging a result onto the timeline or browser.
     func dragProvider(for record: JobRecord) -> FCPXMLDragProvider? {
-        guard let file = record.localFile else { return nil }
-        let info = resultInfo[record.id] ?? MediaInfo(kind: record.output, frameRate: timeline.frameRate)
+        guard let file = record.localFile, let info = resultInfo[record.id] else { return nil }
+        // Without a duration FCP would import a zero-length clip.
+        if info.kind == .video && (info.duration ?? 0) <= 0 { return nil }
         guard let item = record.importItem(info: info, uidPrefix: configuration.uidPrefix) else { return nil }
         return FCPXMLDragProvider(xml: FCPXMLBuilder().document(items: [item], destination: .dragAndDrop), fileURL: file)
     }

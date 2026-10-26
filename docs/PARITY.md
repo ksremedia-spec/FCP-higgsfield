@@ -1,6 +1,6 @@
 # Feature parity: Higgsfield for Premiere Pro → Final Cut Pro edition
 
-Reference: the official plugin at <https://higgsfield.ai/plugins/premiere-pro>. That host is blocked from the build environment, so Premiere behaviour below comes from search-engine extracts of the official page, Higgsfield's help centre and blog, and third-party walkthroughs. See [RESEARCH.md](RESEARCH.md) for sources and confidence. **Nothing here is marked complete because its UI exists.**
+Reference: the official plugin at <https://higgsfield.ai/plugins/premiere-pro>. Premiere behaviour below first came from search-engine extracts of the official page, Higgsfield's help centre and blog, and third-party walkthroughs ([RESEARCH.md](RESEARCH.md)). On 2026-10-26 the official page, its panel screenshots and its demo video were reviewed directly; see [Panel layout vs the official plugin](#panel-layout-vs-the-official-plugin). **Nothing here is marked complete because its UI exists.**
 
 ## Status levels
 
@@ -12,22 +12,22 @@ Reference: the official plugin at <https://higgsfield.ai/plugins/premiere-pro>. 
 | **L4 Live-verified** | Run end-to-end through this app's client against the live Higgsfield API. |
 | **L5 Verified in FCP** | Exercised inside Final Cut Pro. |
 
-Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's API hosts and has no Mac or Final Cut Pro. [VALIDATION.md](VALIDATION.md) has a ready-made checklist and the opt-in CI job that close those gaps.
+No generation has run yet (L4) and nothing has run inside Final Cut Pro (L5). On 2026-10-26 the read-only parts ran live through this app's client: sign-in through the CLI session, balance, catalog, every tool's schema and every tool's cost estimate. The same day showed that Higgsfield's job schemas now take media as top-level properties; the app was changed to send them the way the official CLI 1.2.2 does, so L2 for #1–#7 refers to those new recordings. Details and the remaining checklist: [VALIDATION.md](VALIDATION.md).
 
 ## Summary
 
 | # | Feature | FCP mechanism | Level | Main open item |
 |---|---|---|---|---|
-| 1 | Generate Video | `POST /videos/{model}/generations`; result dragged or imported via FCPXML | L3 (catalog) + L2 (request) | Live run |
-| 2 | Generate Image | `POST /images/{model}/generations` | L3 + L2 | Live run |
-| 3 | Edit Video | Source from FCP browser/timeline/Share → Seedance 2.0 / Kling Omni Edit with video reference | L3 + L2 | Live run; role names per model |
-| 4 | Reframe | `reframe` job type; target-format grid | **L3 (cost preflight live) + L2 (body identical to CLI)** | Live run |
-| 5 | Remove Background | `video_background_remover` / `image_background_remover` | L3 + L2 | Output alpha format vs FCP import |
-| 6 | Upscale | `topaz_video` (1080p/4K), `bytedance_video_upscale` (1080p/2K/4K), `bytedance_image_upscale` (2K/4K) | L3 + L2 | Live run |
-| 7 | Draw to Edit | Sketch canvas → `draw_to_video` (video) / `nano_banana_2` mask inpainting (stills) | L3 + L2 | Sketch role name (`sketch` vs `ref_image`) |
-| 8 | Model selection & settings | Live JSON Schema from `GET /job_types/{id}` → native controls; bundled snapshot fallback | L2 + L3 (catalog) | — |
+| 1 | Generate Video | `POST /videos/{model}/generations`; result dragged or imported via FCPXML | L3 + L2; cost live through the app | Paid live run |
+| 2 | Generate Image | `POST /images/{model}/generations` | L3 + L2; cost live through the app | Paid live run |
+| 3 | Edit Video | Source from FCP browser/timeline/Share → Seedance 2.0 / Kling Omni Edit with video reference | L3 + L2; cost live through the app | Paid live run (roles settled: `video_references` for all four models) |
+| 4 | Reframe | `reframe` job type; target-format grid | **L3 + L2; cost live through the app (123 credits, 10 s at 1080p)** | Paid live run |
+| 5 | Remove Background | `video_background_remover` / `image_background_remover` | L3 + L2; cost live through the app | Output alpha format vs FCP import |
+| 6 | Upscale | `topaz_video` (1080p/4K), `bytedance_video_upscale` (1080p/2K/4K), `bytedance_image_upscale` (2K/4K) | L3 + L2; cost live through the app (not Topaz) | Paid live run; Topaz has no cost estimate |
+| 7 | Draw to Edit | Sketch canvas → `draw_to_video` (video) / `nano_banana_flash` mask inpainting (stills) | L3 + L2; cost live through the app | Paid live run (sketch role settled: `image_references`) |
+| 8 | Model selection & settings | Live JSON Schema from `GET /job_types/{id}` → native controls; bundled snapshot fallback | **L4** (live schemas read and parsed through the app's client) | Check the controls in the panel |
 | 9 | Progress, previews, errors, jobs | Persistent job runner, polling, previews, typed errors | L2 (unit-tested) + L1 (UI) | Live run |
-| 10 | Account auth & credits | Official CLI session / own OAuth (PKCE) / token; balance + cost preflight | L2 + L3 (balance & cost live) | Higgsfield-issued OAuth client ID for built-in sign-in |
+| 10 | Account auth & credits | Official CLI session / own OAuth (PKCE) / token; balance + cost preflight | **L4** for CLI-session sign-in, balance and cost preflight | Higgsfield-issued OAuth client ID for built-in sign-in |
 | 11 | Return media to the project | Drag FCPXML onto the timeline; Open Document import into the open library | L2 (DTD-valid) + L1 | Verify inside FCP |
 | — | Open from the editing workflow | Workflow extension (Extensions button / Window ▸ Extensions) | L1 (bundle layout checked in CI) | FCP listing with the SDK embedded |
 | — | Work with the intended footage | Browser drag with range, timeline link + playhead/range, Share render | L2 (FCPXML parsing and timeline resolution tested) | Verify inside FCP |
@@ -61,15 +61,14 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 
 **FCP edition:**
 - Prompt plus optional reference images.
-- Models: Nano Banana 2 (default), Nano Banana Pro, GPT Image 2, Seedream 4.5, Higgsfield Soul 2.0, FLUX.2.
+- Models: Nano Banana 2 (default, job type `nano_banana_flash`), Nano Banana Pro, GPT Image 2, Seedream 4.5, Higgsfield Soul 2.0 (`text2image_soul_v2`), FLUX.2. The old `nano_banana_2` id now resolves to Nano Banana Pro and `soul_2` no longer exists (live catalog, 2026-10-26).
 - Per-model resolution, quality and aspect ratio.
 - Stills import into FCP as 5-second clips with a `FFVideoFormatRateUndefined` format, so FCP applies its still handling.
 
 **Mechanism:** `POST /images/{job_type}/generations`. Uploaded references are `media_input`.
 
 **Evidence:**
-- The body for `nano_banana_2` with an uploaded image is identical to the CLI capture.
-- Multiple references share the `image_references` role (`testGenerateImageReferencesShareRole`).
+- References go in `image_references`, as the official CLI 1.2.2 sends them (recorded 2026-10-26; `testGenerateImageReferencesShareRole`).
 - Still FCPXML is DTD-valid (`FCPXMLBuilderTests`).
 
 ## 3. Edit Video
@@ -82,7 +81,7 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 - Models: Seedance 2.0 (default), Kling 3.0 Omni Edit, Seedance 2.5 (forced `mode: video_edit`), FLUX 3 Video Edit.
 - Duration follows the In/Out selection and is checked against the model's limits. Seedance 2.0 accepts 4–15 s, which matches the Premiere limits; the panel explains how to trim when out of range. Only the selected range is trimmed (AVFoundation) and uploaded.
 
-**Mechanism:** upload (`POST /media` → PUT → confirm) → `POST /videos/{model}/generations` with the source as `video_input` in the model's video role (`video_references` per catalog).
+**Mechanism:** upload (`POST /media` → PUT → confirm) → `POST /videos/{model}/generations` with the source in `video_references` as `{id, type: video_input}`. All four models take that property (live schemas, 2026-10-26), and the bodies match the official CLI's (`LiveLayoutContractTests.testEditVideoModels`).
 
 **Evidence:**
 - Duration limits and roles: `RequestBuilderTests.testEditVideoEnforcesModelDurationLimits`, `testEditVideoWithSeedance25ForcesEditMode`.
@@ -100,11 +99,11 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 - Resolution choice (480p/720p/1080p).
 - Clips up to 60 s; duration is sent automatically for pricing.
 
-**Mechanism:** `POST /videos/reframe/generations` with `{"params":{"aspect_ratio","resolution","duration","medias":[{"data":{"type":"video_input"},"role":"video"}]}}`.
+**Mechanism:** `POST /videos/reframe/generations` with `{"params":{"aspect_ratio","resolution","duration","video_references":[{"id","type":"video_input"}]}}`.
 
 **Evidence:**
-- **The submission body is identical to the official CLI's** (`testReframeSubmissionMatchesCLICapture`, `testReframeBuildsCLIEquivalentParams`).
-- **Live cost preflight succeeded** through the official MCP: 123 credits for 10 s at 1080p, 140 for 30 s at 720p.
+- **The submission body matches the official CLI 1.2.2** as recorded on 2026-10-26 (`LiveLayoutContractTests.testReframe`); the app adds `duration` for pricing.
+- **Live cost preflight through this app's client** (2026-10-26): 123 credits for 10 s at 1080p, 138 for 30 s at 720p (140 earlier via the MCP).
 - 60 s limit and required aspect ratio are enforced (`testReframeRequiresAspectRatioAndLimitsLength`).
 
 **Difference:** Higgsfield's reframe is generative. It can extend the frame rather than only crop, and the panel says so. FCP's built-in *Smart Conform* is a free crop-only alternative; this tool is for when outpainting or tracking quality matters.
@@ -130,7 +129,7 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 - Video providers: Topaz (1080p / 4K, default) or ByteDance (1080p / 2K / 4K, plus preset, model tier and fps). Stills: ByteDance 2K/4K.
 - Source width and height are filled in automatically when the live schema asks for them. The official MCP notes ByteDance video upscale needs them.
 
-**Evidence:** `testUpscaleFillsSourceDimensionsOnlyWhenSchemaAsks`; all three job types and their resolution options are in the live catalog.
+**Evidence:** `testUpscaleFillsSourceDimensionsOnlyWhenSchemaAsks`; all three job types and their resolution options are in the live catalog. Request bodies match the official CLI's (`LiveLayoutContractTests.testRemoveBackgroundAndUpscale`). Live cost through the app: ByteDance video 2 credits for 5 s, 4 for 10 s; ByteDance image 2. **Topaz has no cost estimate**: the server answers that `topaz_video` doesn't support cost estimation, so the panel shows "estimate unavailable" for it.
 
 **Differences:**
 - No 8K option exists in the current Higgsfield catalog, so none is offered.
@@ -142,14 +141,15 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 
 **FCP edition:**
 - **Draw on Frame…** opens a canvas on the first frame of the selection, with colours, brush size, undo and clear. Add a prompt.
-- **Video:** strokes are composited on the frame at full resolution and sent as the sketch to `draw_to_video`, the workflow the official CLI documents as `--video … --sketch frame.png --prompt "make the jacket red"`.
-- **Stills:** strokes become a white-on-black mask for `nano_banana_2` inpainting (`is_inpaint: true`, `mask` role).
+- **Video:** strokes are composited on the frame at full resolution and sent to `draw_to_video` in `image_references`, which the live schema describes as "the sketch image to animate". The source goes in `video`; `ref_image` is only an optional style reference, used for any reference image.
+- **Stills:** strokes become a white-on-black mask for `nano_banana_flash` ("Nano Banana 2") inpainting (`is_inpaint: true`, `mask`). Nano Banana Pro has no mask input.
 
 **Evidence:**
 - The rendered mask and sketch are pixel-checked (`PanelTests.testSketchAndMaskRendering`).
-- Roles and params: `testDrawToEditVideoUsesSketchRole`, `testDrawToEditImageUsesMaskInpainting`.
+- Roles and params: `testDrawToEditVideoUsesSketchRole`, `testDrawToEditImageUsesMaskInpainting`; bodies match the official CLI's (`LiveLayoutContractTests.testDrawToVideoSketchGoesToImageReferences`, `testDrawToEditStillUsesNanoBanana2MaskInpainting`).
+- Live cost through the app: 26 credits for 5 s at 720p (video), 1.5 (still).
 
-**Open item:** which media role `draw_to_video` expects for the sketch. The CLI example says `sketch`; the catalog lists `ref_image`. The panel picks whichever the live schema exposes, using `ref_image` when offline. Confirm with `hfcp schema draw_to_video`.
+**Settled 2026-10-26:** the sketch role. The earlier guess (`sketch`, else `ref_image`) was wrong: it would have sent the drawing as a style reference.
 
 ## 8. Model selection & generation settings
 
@@ -166,7 +166,9 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 - Tool-specific fields (aspect ratio for Reframe, resolution for Upscale, duration for edit tools) get dedicated controls.
 - A bundled snapshot of the catalog (2026-10-26) keeps the panel usable before sign-in. A badge shows when settings come from it.
 
-**Evidence:** `SchemaTests` cover `$ref`, `anyOf`, `oneOf`/`const` roles, nullable numbers and live-overrides-snapshot behaviour. The live catalog was fetched through the official MCP to build the snapshot (`tools/catalog-snapshot-2026-10-26.json`).
+**Evidence:**
+- `SchemaTests` cover `$ref`, `anyOf`, `oneOf`/`const` roles, nullable numbers, top-level media properties and live-overrides-snapshot behaviour.
+- **Live through this app's client (2026-10-26):** `hfcp schema` read and parsed every job type the tools use. The bundled snapshot is now those exact responses (`tools/catalog-snapshot-2026-10-26.json`), so the offline fallback matches what the panel reads live.
 
 ## 9. Progress, previews, errors and job handling
 
@@ -199,7 +201,8 @@ Nothing has reached L4 or L5 yet. The build environment can't reach Higgsfield's
 - PKCE (RFC 7636 vector), authorize URL and token and refresh form bodies are identical to the CLI captures.
 - CLI bridge tested with a stand-in `hf`; that the real CLI refreshes expired sessions was verified through the capture proxy.
 - 401 → single refresh → retry.
-- **Live:** `balance` → 854.14 credits, plan "plus", and reframe cost preflights, via the official MCP.
+- **Live through this app's client (2026-10-26):** sign-in through the official CLI session, `balance` → 854.14 credits, plan "plus", workspaces, and a cost estimate for every tool (VALIDATION.md). 60 sign-ins in a row succeeded after fixing a rare empty-token read in the CLI bridge.
+- Several job types price by the source length without taking a `duration` parameter (Kling Omni Edit requires it for the estimate). The panel now sends the selected length with every estimate; checked live: Kling Omni Edit 12 credits for 6 s, 24 for 12 s.
 
 **Difference from Premiere:** the plugin has its own sign-in button. Here, sign-in goes through the official Higgsfield CLI (one-time `npm install -g @higgsfield/cli`). A built-in button would need an OAuth client that only Higgsfield can issue; the CLI's own client ID is deliberately not reused.
 
@@ -225,11 +228,38 @@ Clips carry prompt, model, settings and job ID in Notes, the keywords "Higgsfiel
 | Brief | FCP edition |
 |---|---|
 | Open Higgsfield from the editing workflow | Extensions toolbar button / **Window ▸ Extensions ▸ Higgsfield**. The panel docks as a floating window over the FCP UI. The container app offers the same panel with *Keep Panel on Top*. |
-| Same core AI operations in one compact panel | Seven-tool strip in the Premiere plugin's order; minimum 360×560 pt (`ProExtensionAttributes`); Dark Mode as Apple's guidelines recommend. |
+| Same core AI operations in one compact panel | Seven-tool strip; minimum 360×560 pt (`ProExtensionAttributes`); Dark Mode as Apple's guidelines recommend. **The official panel is organised differently**; see below. |
 | Work with the intended source footage | Drag from the FCP browser (range kept), **Use Clip at Playhead / Use Range** on a linked timeline, or Share render. The source card shows origin, resolution, frame rate and In/Out with a trim slider. |
 | Configure and submit | Prompt, tool controls, model and schema-driven settings; validation message and credit estimate beside **Generate** (⌘↩). |
 | Monitor progress and inspect | Activity list with phases, previews and playback; persists across extension restarts. |
 | Bring the asset into FCP with few steps | One drag to the timeline, or zero clicks with auto-import into the open library. |
+
+## Panel layout vs the official plugin
+
+Reviewed on 2026-10-26 from the official page, two panel screenshots on it (labelled v0.4) and its hero demo video (panel labelled v1). The video is a stylised marketing cut, so it shows the layout and labels reliably but not every screen.
+
+**What the official panel looks like:**
+- **Header:** "Higgsfield", a lime **PLUGINS** badge, the version, and the account avatar. No credit balance is visible.
+- **Home screen, not a tool strip:**
+  - **Last generations** ("Recent images and videos"): a horizontal row of thumbnails, with a **+** tile first.
+  - **Apps** ("Create high-quality videos in"): a two-column grid of cards with an icon, a title and a one-line description. Visible in v1: **Draw to video** (NEW badge), **Remove background**, **Image generation**, **Video generation**; more cards continue below. v0.4 also had a promo card at the top (REFRAME, "Try now") and a **Supercomputer** card ("One chat for everything").
+- **Prompting:** a floating, rounded prompt bar with a **+** button (add a reference) and a round lime **↑** send button.
+- **Draw to video:** the brush strokes are painted straight over the video in the program monitor.
+- **Gallery:** an **Image | Video** segmented switch above a grid of results.
+- The page lists the tools as Generate AI Video, Generate AI Image, Reframe, Remove Background, Draw to edit and Upscale; Edit Video appears only in the FAQ. The page also says "five plugins".
+
+**How this edition differs:**
+
+| Official | This edition | Note |
+|---|---|---|
+| Home screen with Last generations row and an Apps grid | Seven-tab tool strip; the active tool's form fills the panel | The main visual-hierarchy difference. Not changed yet: it's a redesign of the panel's top level, so it waits for the owner's decision. |
+| Floating prompt bar with **+** and a lime **↑** | Prompt box inside the form; **Generate** button at the bottom | Same decision as above. |
+| Labels "Draw to video", "Remove background", "Image generation", "Video generation" | "Draw to Edit", "Remove BG", "Image", "Video" (tabs) and "Generate Video" etc. (titles) | Would change with the layout. |
+| Credits not shown in the header | Credit balance shown in the header | Kept: estimates and balance are useful in FCP, where the web app isn't open. |
+| Strokes painted over the program monitor | **Draw on Frame…** opens a canvas in the panel | FCP extensions can't draw over the viewer, so a canvas is the closest equivalent. |
+| Gallery with an Image / Video switch | Activity list of jobs, newest first | Activity also shows progress; a gallery view would be an addition. |
+| Supercomputer chat card | Not offered | Not part of the brief's seven tools. |
+| Not shown: progress UI, Upscale and Edit Video screens | — | Still unknown. |
 
 ## Things the Premiere plugin may do that this edition does not
 

@@ -506,9 +506,10 @@ public final class PanelModel: ObservableObject {
         return d
     }
 
-    /// The catalog gives no default aspect ratio. Reframe starts on 9:16 (the
-    /// most common conversion), generation tools on 16:9, and tools that
-    /// process existing footage keep the source shape ("auto").
+    /// Reframe starts on 9:16 (the most common conversion; its schema has no
+    /// default), generation tools on 16:9, and tools that process existing
+    /// footage keep the source shape ("auto") even when the model's schema
+    /// defaults to something else.
     private func applyPreferredAspectRatio(_ d: inout OperationDraft, op: OperationKind) {
         guard d.values["aspect_ratio"] == nil,
               case .choice(let options)? = catalog.option(d.jobType)?.schema.parameter(named: "aspect_ratio")?.kind else { return }
@@ -518,7 +519,16 @@ public final class PanelModel: ObservableObject {
         case .generateVideo, .generateImage: preferred = ["16:9", "auto"]
         case .editVideo, .removeBackground, .upscale, .drawToEdit: preferred = ["auto"]
         }
+        // Without "auto", a processing tool sends no ratio rather than an invented one.
+        if Self.keepsSourceShape(op) && !options.contains("auto") { return }
         d.values["aspect_ratio"] = preferred.first(where: options.contains) ?? options.first
+    }
+
+    static func keepsSourceShape(_ op: OperationKind) -> Bool {
+        switch op {
+        case .editVideo, .removeBackground, .upscale, .drawToEdit: return true
+        case .reframe, .generateVideo, .generateImage: return false
+        }
     }
 
     /// Schema defaults, keeping compatible previous values (e.g. aspect ratio).
@@ -531,6 +541,10 @@ public final class PanelModel: ObservableObject {
             if spec.name == "duration" && tool.durationFollowsSource { continue }
             if let old = previous[spec.name], case .success(let v) = spec.validate(old) {
                 values[spec.name] = v
+            } else if spec.name == "aspect_ratio" && Self.keepsSourceShape(tool) {
+                // Live schemas give a default (Seedance: 16:9), but tools that
+                // process existing footage keep its shape; see applyPreferredAspectRatio.
+                continue
             } else if let def = spec.defaultValue, def != .null {
                 values[spec.name] = def
             }
@@ -582,6 +596,7 @@ public final class PanelModel: ObservableObject {
                 if draft.jobType == jobType {
                     var d = draft
                     d.values = defaultValues(for: jobType, keeping: d.values)
+                    applyPreferredAspectRatio(&d, op: operation)
                     draft = d
                 }
             }
@@ -829,6 +844,7 @@ public final class PanelModel: ObservableObject {
         if !candidates.contains(d.jobType), let first = candidates.first {
             d.jobType = first
             d.values = defaultValues(for: first, keeping: d.values)
+            applyPreferredAspectRatio(&d, op: operation)
         }
         draft = d
         loadLiveSchemas()

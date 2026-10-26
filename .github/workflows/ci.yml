@@ -77,13 +77,13 @@ jobs:
           # its sandboxed extension to run on the owner's Mac. The generated
           # Xcode project is packaged too, for building with a real team.
           xcodebuild -project App/HiggsfieldFCP.xcodeproj \
-            -scheme HiggsfieldFCP -configuration Debug \
+            -scheme HiggsfieldFCP -configuration Release \
             -destination 'platform=macOS' \
             -derivedDataPath build/LocalDerivedData \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
             build | tee build/xcodebuild-local.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build/xcodebuild-local.log
-          APP=$(find build/LocalDerivedData/Build/Products/Debug -maxdepth 1 -name "*.app" | head -1)
+          APP=$(find build/LocalDerivedData/Build/Products/Release -maxdepth 1 -name "*.app" | head -1)
           codesign --verify --deep --strict "$APP"
           mkdir -p build/dist
           ditto -c -k --keepParent "$APP" "build/dist/Higgsfield for Final Cut Pro.app.zip"

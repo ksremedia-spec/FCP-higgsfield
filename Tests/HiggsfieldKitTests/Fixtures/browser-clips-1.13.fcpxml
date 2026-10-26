@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+
+<fcpxml version="1.13">
+    <resources>
+        <format id="r1" name="FFVideoFormat3840x2160p2398" frameDuration="1001/24000s" width="3840" height="2160" colorSpace="1-1-1 (Rec. 709)"/>
+        <asset id="r2" name="A001_C002_0812XY" uid="5C2F0C0B9A1E5A8F2D3B4C5D6E7F8091" start="3600/1s" duration="1201200/24000s" hasVideo="1" format="r1" hasAudio="1" videoSources="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" sig="5C2F0C0B9A1E5A8F2D3B4C5D6E7F8091" src="file:///Volumes/RAID/Shoot%20Day%201/A001_C002_0812XY.mov">
+                <bookmark>Ym9va21hcms=</bookmark>
+            </media-rep>
+            <metadata>
+                <md key="com.apple.proapps.studio.rawToLogConversion" value="0"/>
+            </metadata>
+        </asset>
+        <format id="r3" name="FFVideoFormatRateUndefined" width="2048" height="1365"/>
+        <asset id="r4" name="Poster Still" start="0s" duration="0s" hasVideo="1" format="r3" videoSources="1">
+            <media-rep kind="original-media" src="file:///Users/editor/Pictures/Poster%20Still.png"/>
+        </asset>
+        <asset id="r5" name="Music Bed" start="0s" duration="120s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///Users/editor/Music/bed.wav"/>
+        </asset>
+        <media id="r6" name="Compound Clip 1"><sequence format="r1" duration="10s"><spine/></sequence></media>
+    </resources>
+    <asset-clip ref="r2" name="A001_C002 (selected range)" start="3612012/1001s" duration="168168/24000s" format="r1" tcFormat="NDF" audioRole="dialogue">
+        <keyword start="3612012/1001s" duration="168168/24000s" value="Interview"/>
+    </asset-clip>
+    <clip name="Poster Still" duration="5s" format="r3">
+        <video ref="r4" duration="5s"/>
+    </clip>
+    <asset-clip ref="r5" name="Music Bed" duration="120s" audioRole="music"/>
+    <ref-clip ref="r6" name="Compound Clip 1" duration="10s"/>
+</fcpxml>

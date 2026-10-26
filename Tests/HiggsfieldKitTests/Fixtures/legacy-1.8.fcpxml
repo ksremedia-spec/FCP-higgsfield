@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.8">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p2997" frameDuration="1001/30000s" width="1920" height="1080"/>
+        <asset id="r2" name="Legacy" src="file:///Volumes/Old/Legacy.mov" start="0s" duration="10010/1000s" hasVideo="1" format="r1"/>
+    </resources>
+    <event name="Old">
+        <asset-clip ref="r2" name="Legacy" duration="10010/1000s"/>
+    </event>
+</fcpxml>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+
+<fcpxml version="1.10">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="100/2500s" width="1920" height="1080"/>
+        <asset id="r2" name="Wide" start="0s" duration="60s" hasVideo="1" format="r1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///Volumes/Media/Wide.mov"/>
+        </asset>
+        <asset id="r3" name="Close" start="0s" duration="30s" hasVideo="1" format="r1">
+            <media-rep kind="original-media" src="file:///Volumes/Media/Close.mov"/>
+        </asset>
+        <asset id="r4" name="B-Roll" start="3600s" duration="20s" hasVideo="1" format="r1">
+            <media-rep kind="original-media" src="file:///Volumes/Media/BRoll.mov"/>
+        </asset>
+        <asset id="r5" name="VO" start="0s" duration="40s" hasAudio="1" audioSources="1" audioChannels="1" audioRate="48000">
+            <media-rep kind="original-media" src="file:///Volumes/Media/VO.wav"/>
+        </asset>
+    </resources>
+    <library location="file:///Users/editor/Movies/Spot.fcpbundle/">
+        <event name="Edit" uid="E1">
+            <project name="Spot v3" uid="P1">
+                <sequence format="r1" duration="30s" tcStart="3600s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+                    <spine>
+                        <asset-clip ref="r2" offset="3600s" name="Wide" start="10s" duration="10s" format="r1" tcFormat="NDF" audioRole="dialogue">
+                            <asset-clip ref="r4" lane="1" offset="14s" name="B-Roll" start="3602s" duration="3s" format="r1"/>
+                            <asset-clip ref="r5" lane="-1" offset="10s" name="VO" duration="10s" audioRole="dialogue"/>
+                        </asset-clip>
+                        <gap name="Gap" offset="3610s" start="3600s" duration="2s"/>
+                        <clip name="Close (wrapped)" offset="3612s" start="5s" duration="8s" format="r1">
+                            <video ref="r3" offset="0s" start="0s" duration="30s"/>
+                        </clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>

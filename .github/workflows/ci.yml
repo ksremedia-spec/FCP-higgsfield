@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-linux:
+    name: HiggsfieldKit tests (Linux, Swift 5.10)
+    runs-on: ubuntu-latest
+    container: swift:5.10-jammy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install xmllint
+        run: apt-get update -qq && apt-get install -y -qq libxml2-utils python3 >/dev/null
+      - name: Fetch Apple's FCPXML 1.10 DTD
+        run: python3 tools/fetch_fcpxml_dtd.py "$RUNNER_TEMP/fcpxml-1.10.dtd"
+      - name: swift test
+        env:
+          FCPXML_DTD: ${{ runner.temp }}/fcpxml-1.10.dtd
+        run: swift test
+
+  macos:
+    name: Tests + app/extension build (macOS, Xcode)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Fetch Apple's FCPXML 1.10 DTD
+        run: python3 tools/fetch_fcpxml_dtd.py "$RUNNER_TEMP/fcpxml-1.10.dtd"
+      - name: swift test (HiggsfieldKit)
+        env:
+          FCPXML_DTD: ${{ runner.temp }}/fcpxml-1.10.dtd
+          FCPXML_OUT: ${{ runner.temp }}/fcpxml-out
+        run: swift test
+      - name: swift build (all products, incl. HiggsfieldPanel)
+        run: swift build
+      - name: Generate Xcode project
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate --spec App/project.yml
+      - name: Build container app + Final Cut Pro workflow extension
+        run: |
+          set -o pipefail
+          xcodebuild -project App/HiggsfieldFCP.xcodeproj \
+            -scheme HiggsfieldFCP -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            build | tee build/xcodebuild.log | grep -E "error:|warning: |BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build/xcodebuild.log
+      - name: Verify bundle layout
+        run: |
+          APP=$(find build/DerivedData/Build/Products/Debug -maxdepth 1 -name "*.app" | head -1)
+          echo "App: $APP"
+          test -d "$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex"
+          /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :NSExtension:ProExtensionPrincipalViewControllerClass" "$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex/Contents/Info.plist"
+      - name: Upload generated FCPXML samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fcpxml-samples
+          path: ${{ runner.temp }}/fcpxml-out
+          if-no-files-found: ignore
+
+  live-api:
+    name: Live Higgsfield API check (read-only, manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    container: swift:5.10-jammy
+    env:
+      HIGGSFIELD_ACCESS_TOKEN: ${{ secrets.HIGGSFIELD_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require token
+        run: |
+          if [ -z "$HIGGSFIELD_ACCESS_TOKEN" ]; then
+            echo "::warning::Set the HIGGSFIELD_ACCESS_TOKEN secret (output of 'hf auth token') to run the live check."
+            exit 1
+          fi
+      - name: Build hfcp
+        run: swift build --product hfcp
+      - name: Account, catalog and schemas (no credits spent)
+        run: |
+          set -x
+          .build/debug/hfcp balance
+          .build/debug/hfcp workspaces
+          .build/debug/hfcp catalog --type video | head -50
+          .build/debug/hfcp catalog --chain
+          for jt in reframe draw_to_video video_background_remover image_background_remover topaz_video bytedance_video_upscale bytedance_image_upscale seedance_2_0 kling_video_edit nano_banana_2; do
+            .build/debug/hfcp schema "$jt" || true
+          done
+      - name: Cost estimates for each tool (no credits spent)
+        run: |
+          set -x
+          .build/debug/hfcp cost generateVideo --prompt "slow dolly in on a lighthouse"
+          .build/debug/hfcp cost generateImage --prompt "product shot"
+          .build/debug/hfcp cost editVideo --prompt "make it snow" --duration 6
+          .build/debug/hfcp cost reframe --duration 10 --set aspect_ratio=9:16 --set resolution=1080p
+          .build/debug/hfcp cost removeBackground --duration 5
+          .build/debug/hfcp cost upscale --duration 5 --width 1280 --height 720 --set resolution=2160p
+          .build/debug/hfcp cost drawToEdit --prompt "make the jacket red" --duration 5

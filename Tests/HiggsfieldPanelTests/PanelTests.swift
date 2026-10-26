@@ -151,6 +151,27 @@ final class PanelTests: XCTestCase {
         XCTAssertEqual(model.drafts[.editVideo]?.values["aspect_ratio"], "auto")
     }
 
+    func testGenerateImageStartsAt16x9DespiteSchemaDefault() {
+        // Live image schemas default to 1:1; generation tools start on 16:9.
+        let model = makeModel()
+        XCTAssertEqual(model.drafts[.generateImage]?.values["aspect_ratio"], "16:9")
+        model.operation = .generateImage
+        model.selectModel("gpt_image_2")
+        XCTAssertEqual(model.draft.values["aspect_ratio"], "16:9", "kept across a model switch")
+    }
+
+    func testRestoredDraftOnRetiredModelMovesToCurrentModel() throws {
+        let storage = SharedStorage(root: tempRoot)
+        let stale: [OperationKind: OperationDraft] = [
+            .generateImage: OperationDraft(operation: .generateImage, jobType: "nano_banana_2", prompt: "poster"),
+        ]
+        try FileManager.default.createDirectory(at: storage.root, withIntermediateDirectories: true)
+        try JSONEncoder().encode(stale).write(to: storage.draftsFile(extension: true))
+        let model = makeModel()
+        XCTAssertEqual(model.drafts[.generateImage]?.jobType, "nano_banana_flash")
+        XCTAssertEqual(model.drafts[.generateImage]?.prompt, "poster", "the user's prompt survives")
+    }
+
     func testFrameRateLabel() {
         XCTAssertEqual(SourceWellView.frameRateLabel(23.976), "23.98")
         XCTAssertEqual(SourceWellView.frameRateLabel(25), "25")

@@ -147,3 +147,26 @@ final class CostParamsTests: XCTestCase {
         XCTAssertEqual(seedance.costParams["duration"], 9)
     }
 }
+
+final class ReviewRegressionTests: XCTestCase {
+    func clip(_ d: Double) -> SourceClip {
+        SourceClip(name: "c", fileURL: URL(fileURLWithPath: "/tmp/c.mov"), kind: .video, origin: .file, info: MediaInfo(kind: .video, duration: d))
+    }
+
+    func testIntegerDurationLimitsUseTheRealLength() {
+        // Seedance 2.0: whole seconds, 4–15 s (live schema).
+        XCTAssertThrowsError(try RequestBuilder.prepare(OperationDraft(operation: .editVideo, prompt: "x", source: clip(15.3)), catalog: .snapshot))
+        XCTAssertThrowsError(try RequestBuilder.prepare(OperationDraft(operation: .editVideo, prompt: "x", source: clip(3.6)), catalog: .snapshot))
+        XCTAssertEqual(try RequestBuilder.prepare(OperationDraft(operation: .editVideo, prompt: "x", source: clip(15.02)), catalog: .snapshot).params["duration"], 15)
+        XCTAssertEqual(try RequestBuilder.prepare(OperationDraft(operation: .editVideo, prompt: "x", source: clip(3.97)), catalog: .snapshot).params["duration"], 4)
+    }
+
+    func testSingleValueMediaPropertyTakesOneInput() {
+        let image = SourceClip(name: "r", fileURL: URL(fileURLWithPath: "/tmp/r.png"), kind: .image, origin: .file, info: MediaInfo(kind: .image))
+        let draft = OperationDraft(operation: .drawToEdit, prompt: "x", source: clip(5), referenceImages: [image, image],
+                                   sketchFile: URL(fileURLWithPath: "/tmp/s.png"))
+        XCTAssertThrowsError(try RequestBuilder.prepare(draft, catalog: .snapshot)) { e in
+            XCTAssertTrue((e as? HiggsfieldError)?.userMessage.contains("only one") == true)
+        }
+    }
+}

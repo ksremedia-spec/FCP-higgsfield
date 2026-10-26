@@ -140,6 +140,9 @@ public struct HiggsfieldCLIBridge: Sendable {
                 try? err.fileHandleForWriting.close()
                 DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: timer)
             } catch {
+                // Let the reader threads see end of file and exit.
+                try? out.fileHandleForWriting.close()
+                try? err.fileHandleForWriting.close()
                 continuation.resume(throwing: HiggsfieldError.cliUnavailable("Couldn’t launch the Higgsfield CLI: \(error.localizedDescription)"))
             }
         }

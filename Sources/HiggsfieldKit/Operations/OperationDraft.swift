@@ -191,6 +191,10 @@ public enum RequestBuilder {
             if reusable, exclusive.contains(role) {
                 throw HiggsfieldError.invalidInput("\(model.name) doesn’t accept this kind of input.")
             }
+            // A single-value property (`ref_image`, `start_image`, `mask`) holds one input.
+            if let field = schema.mediaField(named: role), !field.isArray, used.contains(role) {
+                throw HiggsfieldError.invalidInput("\(model.name) accepts only one input of this kind.")
+            }
             used.insert(role)
             if !reusable { exclusive.insert(role) }
             media.append(PendingMedia(slot: slot, role: role, payload: payload))
@@ -239,14 +243,16 @@ public enum RequestBuilder {
             return options.first ?? .number(seconds.rounded())
         case .number(let lo, let hi, let integer):
             var value = integer ? seconds.rounded() : (seconds * 10).rounded() / 10
-            if let lo, value < lo {
-                if operation == .reframe { value = lo } else {
-                    throw HiggsfieldError.invalidInput("This model needs at least \(JSONValue.number(lo).displayString) s of footage; the selection is \(formatDuration(seconds)).")
-                }
+            // Check the real length (within a frame or so), not the rounded value:
+            // a 15.3 s clip must not pass a 15 s limit because it rounds to 15.
+            if let lo, seconds < lo - 0.05, operation != .reframe {
+                throw HiggsfieldError.invalidInput("This model needs at least \(JSONValue.number(lo).displayString) s of footage; the selection is \(formatDuration(seconds)).")
             }
-            if let hi, value > hi {
+            if let hi, seconds > hi + 0.05 {
                 throw HiggsfieldError.invalidInput("This model accepts up to \(JSONValue.number(hi).displayString) s; the selection is \(formatDuration(seconds)). Set In/Out points to shorten it.")
             }
+            if let lo, value < lo { value = lo }
+            if let hi, value > hi { value = hi }
             return .number(value)
         default:
             return .number((seconds * 10).rounded() / 10)

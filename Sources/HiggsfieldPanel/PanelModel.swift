@@ -129,6 +129,16 @@ public final class PanelModel: ObservableObject {
             restored[op] = d
         }
         self.drafts = restored
+        // Drafts saved before a model id was retired (nano_banana_2, soul_2 on
+        // 2026-10-26) move to the tool's current first choice.
+        for (op, d) in restored where !op.candidateJobTypes(sourceKind: d.source?.kind).contains(d.jobType) {
+            guard let first = op.candidateJobTypes(sourceKind: d.source?.kind).first else { continue }
+            var fixed = d
+            fixed.jobType = first
+            fixed.values = defaultValues(for: first, keeping: d.values, operation: op)
+            applyPreferredAspectRatio(&fixed, op: op)
+            drafts[op] = fixed
+        }
         for op in OperationKind.allCases where drafts[op] == nil {
             drafts[op] = makeDraft(op, jobType: settings.lastJobTypes[op.rawValue])
         }
@@ -506,10 +516,9 @@ public final class PanelModel: ObservableObject {
         return d
     }
 
-    /// Reframe starts on 9:16 (the most common conversion; its schema has no
-    /// default), generation tools on 16:9, and tools that process existing
-    /// footage keep the source shape ("auto") even when the model's schema
-    /// defaults to something else.
+    /// Reframe starts on 9:16 (the most common conversion), generation tools
+    /// on 16:9, and tools that process existing footage keep the source shape
+    /// ("auto"). Schema defaults for the ratio are ignored (defaultValues).
     private func applyPreferredAspectRatio(_ d: inout OperationDraft, op: OperationKind) {
         guard d.values["aspect_ratio"] == nil,
               case .choice(let options)? = catalog.option(d.jobType)?.schema.parameter(named: "aspect_ratio")?.kind else { return }
@@ -541,9 +550,10 @@ public final class PanelModel: ObservableObject {
             if spec.name == "duration" && tool.durationFollowsSource { continue }
             if let old = previous[spec.name], case .success(let v) = spec.validate(old) {
                 values[spec.name] = v
-            } else if spec.name == "aspect_ratio" && Self.keepsSourceShape(tool) {
-                // Live schemas give a default (Seedance: 16:9), but tools that
-                // process existing footage keep its shape; see applyPreferredAspectRatio.
+            } else if spec.name == "aspect_ratio" {
+                // Live schemas carry their own defaults (Seedance 16:9, image
+                // models 1:1). The panel's per-tool choice wins; see
+                // applyPreferredAspectRatio, which every caller runs next.
                 continue
             } else if let def = spec.defaultValue, def != .null {
                 values[spec.name] = def

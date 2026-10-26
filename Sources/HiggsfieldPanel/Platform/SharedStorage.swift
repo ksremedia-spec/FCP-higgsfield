@@ -29,6 +29,13 @@ public struct SharedStorage: Sendable {
         }
     }
 
+    /// Explicit locations (tests, previews).
+    public init(root: URL, appGroup: String? = nil, keychainGroup: String? = nil) {
+        self.root = root
+        self.appGroup = appGroup
+        self.keychainGroup = keychainGroup
+    }
+
     public var jobsFile: URL { root.appendingPathComponent("jobs.json") }
     /// Files received from Final Cut Pro's File ▸ Share (“Open with” the container app).
     public var inbox: URL { root.appendingPathComponent("Inbox", isDirectory: true) }

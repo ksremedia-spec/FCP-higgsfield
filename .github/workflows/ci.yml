@@ -39,6 +39,7 @@ jobs:
         env:
           FCPXML_DTD: ${{ runner.temp }}/fcpxml-1.10.dtd
           FCPXML_OUT: ${{ runner.temp }}/fcpxml-out
+          PANEL_SNAPSHOTS: ${{ runner.temp }}/panel-snapshots
         run: swift test
       - name: swift build (all products, incl. HiggsfieldPanel)
         run: swift build
@@ -70,6 +71,13 @@ jobs:
         with:
           name: fcpxml-samples
           path: ${{ runner.temp }}/fcpxml-out
+          if-no-files-found: ignore
+      - name: Upload panel snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: panel-snapshots
+          path: ${{ runner.temp }}/panel-snapshots
           if-no-files-found: ignore
 
   live-api:

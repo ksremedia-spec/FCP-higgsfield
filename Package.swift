@@ -23,6 +23,10 @@ let package = Package(
             dependencies: ["HiggsfieldKit"]
         ),
         .testTarget(
+            name: "HiggsfieldPanelTests",
+            dependencies: ["HiggsfieldPanel", "HiggsfieldKit"]
+        ),
+        .testTarget(
             name: "HiggsfieldKitTests",
             dependencies: ["HiggsfieldKit"],
             resources: [.copy("Fixtures")]

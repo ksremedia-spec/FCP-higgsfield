@@ -776,6 +776,28 @@ public final class PanelModel: ObservableObject {
     }
 }
 
+#if DEBUG
+extension PanelModel {
+    /// Puts the model into a given visual state without network access
+    /// (snapshot tests and SwiftUI previews).
+    func applyPreviewState(auth: AuthState, account: AccountBalance? = nil, jobs: [JobRecord] = [],
+                           timeline: TimelineState = .empty, project: FCPXMLDocument.Project? = nil,
+                           cost: CostState = .idle, banner: Banner? = nil) {
+        authState = auth
+        self.account = account
+        self.jobs = jobs
+        self.timeline = timeline
+        timelineProject = project
+        if validationMessage == nil { costState = cost }
+        self.banner = banner
+    }
+
+    func applyPreviewResultInfo(_ info: MediaInfo, for id: UUID) {
+        resultInfo[id] = info
+    }
+}
+#endif
+
 public extension Notification.Name {
     /// Posted by the container app when Final Cut Pro shares a file into the inbox.
     static let higgsfieldInboxChanged = Notification.Name("HiggsfieldFCP.inboxChanged")

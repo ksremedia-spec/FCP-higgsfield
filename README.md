@@ -92,7 +92,7 @@ In Final Cut Pro, go to **File ▸ Share ▸ Add Destination**, add **Export Fil
 | `App/` | XcodeGen spec, container app, Final Cut Pro workflow extension |
 | `Sources/hfcp` | Command-line harness for validating against the live API |
 | `Tests/` | Contract, operation, job, FCPXML and panel tests |
-| `docs/` | [PARITY](docs/PARITY.md), [VALIDATION](docs/VALIDATION.md), [API-CONTRACT](docs/API-CONTRACT.md), [FCP-INTEGRATION](docs/FCP-INTEGRATION.md), [RESEARCH](docs/RESEARCH.md) |
+| `docs/` | [HANDOFF](docs/HANDOFF.md) (start here when continuing on a Mac), [PARITY](docs/PARITY.md), [VALIDATION](docs/VALIDATION.md), [API-CONTRACT](docs/API-CONTRACT.md), [FCP-INTEGRATION](docs/FCP-INTEGRATION.md), [RESEARCH](docs/RESEARCH.md) |
 | `tools/` | Catalog snapshot and generator, DTD fetcher |
 
 ## Notes

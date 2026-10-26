@@ -40,7 +40,7 @@ hf auth token >/dev/null && echo "CLI session OK"
 
 Optional:
 
-- **Workflow Extension SDK** (live playhead, range, and importing straight into the open library). Download it from <https://developer.apple.com/download/all/?q=WorkflowExtensions>, install it, then run `scripts/configure-workflow-sdk.sh`. That writes `App/Config/ProExtensionHost.local.xcconfig` (git-ignored), and a post-build script embeds the framework. Without it, everything else works: drag in and out, Share, and Add to Final Cut Pro (FCP then asks which library to use).
+- **Workflow Extension SDK** (live playhead, range, and importing straight into the open library). Download it from <https://developer.apple.com/download/all/?q=WorkflowExtensions>, install it, then run `scripts/configure-workflow-sdk.sh`. That writes `App/Config/ProExtensionHost.local.xcconfig` (git-ignored), and a post-build script embeds the framework. **Update 2026-10-26: this was wrong.** Without the SDK the extension crashes on launch inside FCP (VALIDATION, *First run on the owner's Mac*), so treat the SDK as required.
 - **Paid developer team** (the owner has one). Copy `App/Config/Local.xcconfig.example` to `App/Config/Local.xcconfig` and set `HIGGSFIELD_TEAM_ID`. That signs both targets with the team (and survives `xcodegen generate`), adds an App Group and a Keychain group, and moves job history and sign-in over on first launch. See the README section *Paid developer team*.
 
 ### Build, test, install

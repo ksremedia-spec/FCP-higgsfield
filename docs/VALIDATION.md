@@ -124,6 +124,22 @@ The official CLI's behaviour was also verified through a capture proxy, with no 
 | **App Group and Keychain with a real team** (optional) | Needs your Team ID and a Mac; CI can only ad-hoc sign | Follow README, *Paid developer team*, then the checklist |
 | **Timeline API binding** (`ProExtensionHost`) | Needs Apple's Workflow Extension SDK and FCP | `scripts/configure-workflow-sdk.sh`, then the checklist |
 
+## First run on the owner's Mac (2026-10-26)
+
+Installed from the CI "mac-app" artifact (Release, signed to run locally) into `/Applications` and launched from there. macOS 26.6.1, Final Cut Pro with an open library.
+
+| Check | Result |
+|---|---|
+| Container app launches; panel window opens | **Yes.** Shows *Connect your Higgsfield account*. |
+| CLI detection | Works: "The Higgsfield CLI wasn't found on this Mac" (it isn't installed there). |
+| **Higgsfield listed in FCP under Window ▸ Extensions** | **Yes** (alongside mCaptionsAI and mExtension). |
+| Extension panel opens in FCP | **No.** The window stays on "Loading…". Same with a Debug build, after restarting FCP, and from `/Applications`. |
+| Cause | Crash report: `EXC_BREAKPOINT` in `-[EXConcreteExtensionContextVendor _extensionContextClass]`, on the extension-service queue, before any of this app's code runs. macOS couldn't find the extension context class for FCP's extension point. |
+
+**Most likely reason (not yet proven):** that context class comes from Apple's Workflow Extension SDK framework (`ProExtensionHost.framework`), which this build doesn't embed because the SDK isn't installed: `/Library/Frameworks` holds only `iTunesLibrary.framework`. So the earlier assumption in HANDOFF, that the extension works without the SDK, was wrong: the SDK is required for the panel to load at all, not just for the live timeline.
+
+**Next step on the Mac:** install the SDK (Apple ID download from developer.apple.com, then its installer, which asks for the Mac's password), run `scripts/configure-workflow-sdk.sh`, rebuild and reinstall. If it still crashes, the next suspects are `NSExtensionPrincipalClass` in the extension's Info.plist (compare with the SDK template's) and the forum fix of disabling library validation (Apple Developer Forums 720022); that one loosens the extension's security, so it needs the owner's OK.
+
 ## Live API check in CI (no credits spent)
 
 1. On your Mac: `npm install -g @higgsfield/cli && hf auth login && hf auth token`.

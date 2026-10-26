@@ -70,6 +70,30 @@ jobs:
           # Default personal build: no App Group or Keychain group.
           test -z "$(/usr/libexec/PlistBuddy -c 'Print :HiggsfieldAppGroup' "$APP/Contents/Info.plist")"
           test -z "$(/usr/libexec/PlistBuddy -c 'Print :HiggsfieldKeychainGroup' "$APP/Contents/PlugIns/HiggsfieldWorkflowExtension.appex/Contents/Info.plist")"
+      - name: Build an installable copy (personal config, signed to run locally)
+        run: |
+          set -o pipefail
+          # Ad-hoc ("Sign to Run Locally") signature: enough for the app and
+          # its sandboxed extension to run on the owner's Mac. The generated
+          # Xcode project is packaged too, for building with a real team.
+          xcodebuild -project App/HiggsfieldFCP.xcodeproj \
+            -scheme HiggsfieldFCP -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/LocalDerivedData \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
+            build | tee build/xcodebuild-local.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build/xcodebuild-local.log
+          APP=$(find build/LocalDerivedData/Build/Products/Debug -maxdepth 1 -name "*.app" | head -1)
+          codesign --verify --deep --strict "$APP"
+          mkdir -p build/dist
+          ditto -c -k --keepParent "$APP" "build/dist/Higgsfield for Final Cut Pro.app.zip"
+          ditto -c -k --keepParent App/HiggsfieldFCP.xcodeproj build/dist/HiggsfieldFCP.xcodeproj.zip
+      - name: Upload installable app and Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-app
+          path: build/dist
+          retention-days: 14
       - name: Build with the paid-team config (Local.xcconfig.example, ad-hoc signed)
         run: |
           set -o pipefail

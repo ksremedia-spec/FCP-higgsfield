@@ -6,7 +6,7 @@ This page lists what has been verified and how, what has not been verified yet, 
 
 | Check | Where | What it proves |
 |---|---|---|
-| **HiggsfieldKit tests on Linux** (Swift 5.10) and **macOS** (Xcode 16) | `swift test` | 66 tests (see below) |
+| **HiggsfieldKit tests on Linux** (Swift 5.10) and **macOS** (Xcode 16) | `swift test` | 71 tests (see below) |
 | **Panel tests on macOS** | `Tests/HiggsfieldPanelTests` | Draw-to-Edit sketch and mask pixels, FCPXML drag pasteboard types and data, FCP browser/project drops → sources, timeline playhead resolution, validation messages, tool defaults, graceful behaviour with no FCP host |
 | **FCPXML ⟷ Apple DTD 1.10** | `FCPXMLBuilderTests` with `FCPXML_DTD` (fetched from developer.apple.com by `tools/fetch_fcpxml_dtd.py`) | Every generated import/drag document validates with `xmllint --dtdvalid`. A deliberately broken document is rejected, so the check is real. |
 | **Container app + workflow extension build** | `xcodegen` + `xcodebuild` | Both targets compile and link against the package. The `.appex` is embedded under `PlugIns/` with `NSExtensionPointIdentifier = com.apple.FinalCut.WorkflowExtension` and the principal view controller key. |
@@ -27,6 +27,25 @@ This page lists what has been verified and how, what has not been verified yet, 
   - FCPXML 1.8/1.10/1.13 parsing, including browser ranges with timecode starts, `<clip><video>` wrappers, connected clips and gaps
   - playhead and range resolution
   - frame-boundary conforming, escaping, and import metadata (notes, keywords, uid)
+
+## Independent code review
+
+A separate reviewer read the macOS layer for runtime bugs that compiling and tests miss, and reported 12. All 12 were confirmed and fixed, with regression tests where they are testable:
+
+| Finding | Fix | Test |
+|---|---|---|
+| A reconnect during an upload marked the job failed while the old runner kept going (risking a double charge on resubmit) | One runner per panel; reconnects swap the client in place; the interrupted sweep runs once per launch; stale connects are ignored | `testLaterResumeLeavesInFlightUploadsAlone`, `testStopAllHaltsPolling` |
+| Concurrent token refreshes each triggered a full CLI sign-in in the app | Refreshes coalesced; the app serves the extension with a lightweight `hf auth token` and reports failures through a status file | `testStoredProviderCoalescesConcurrentRefreshes` |
+| OAuth sign-in never ended on timeout | The listener is cancelled on timeout or cancel, which always ends the wait; a Cancel button was added | — (needs a Higgsfield OAuth client) |
+| Source permission state leaked between tools; grants were lost on relaunch | Re-evaluated per tool and on start; security-scoped bookmarks are persisted | `testSourceAccessFollowsTheActiveTool` |
+| A linked timeline could be resolved against a different open project | The link must match the active sequence and is cleared when FCP switches project | `testLinkedTimelineMustMatchOpenSequence` |
+| AppKit overlays swallowed the remove-source click and the double-click preview | Controls moved above the drop view; the drag source forwards double-clicks | snapshots |
+| Reused or old results lacked media info (no duration, drag did nothing) | Probed on demand | `testDragPayloadOffersFCPXMLAndFileURL` |
+| Shared OAuth refresh token was cached forever and cleared on any failure | Re-read before use; cleared only if unchanged | `testOAuthProviderUsesTokensRotatedByAnotherProcess`, `testFailedRefreshDoesNotClearACredentialReplacedMeanwhile` |
+| App and extension overwrote each other's settings and drafts | Separate files per process; stale drawings dropped | `testAppAndExtensionKeepSeparateSettings` |
+| Stale thumbnails could win races | Results discarded when the load task is cancelled | — |
+| A chatty CLI could block on a full pipe | Pipes drained while the process runs | `testCLIBridgeDrainsLargeOutputWithoutBlocking` |
+| Sign-in reported success to the other process even when it failed | Notification sent only after a successful connect | — |
 
 ## Verified live (read-only, official Higgsfield MCP server, this account)
 
